@@ -3,6 +3,9 @@ uuid = "dffaa6cc-da53-48e5-b007-4292dfcc27f1"
 authors = ["KristofferC <kcarlsson89@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+WinRPM = "c17dfb99-b4f7-5aad-8812-456da1ad7187"
+
 [compat]
 julia = "1"
 
