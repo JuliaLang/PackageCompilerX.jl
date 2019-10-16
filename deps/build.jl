@@ -66,7 +66,7 @@ function build()
                                 """
     end
     open("deps.jl", "w") do io
-        println(io, "const gcc = ", repr(`$gccpath $gccargs`))
+        println(io, "const SYSTEM_COMPILER = ", repr(`$gccpath $gccargs`))
     end
 end
 
