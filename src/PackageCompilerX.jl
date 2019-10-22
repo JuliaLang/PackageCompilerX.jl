@@ -1,52 +1,16 @@
 module PackageCompilerX
 
-using Clang_jll
 using Libdl
 
-function test_clang()
-    clang() do cc
-        file = joinpath(@__DIR__, "..", "hello.cpp")
-        run(`$cc -v $file -fuse-ld=lld`)
-    end
-end
-
-function run_precompilation(precompilefile::String, project=Base.active_project)
-    tmp = tempname()
-    cmd = `$(Base.julia_cmd()) --project=$(repr(project)) --startup-file=no --trace-compile=$tmp $precompilefile`
-    run(cmd)
-    return readlines(tmp)
-end
+include("juliaconfig.jl")
 
 function create_object(package::Symbol, project=Base.active_project(); precompilefile="precompile.jl")
-    # Check that packages are available in project
-    #precompile_statements = run_precompilation(precompilefile)
-    #=
-    tmp = tempname()
-    julia_code *= """\n\n
-    @eval Module() begin
-        for (_pkgid, _mod) in Base.loaded_modules
-            if !(_pkgid.name in ("Main", "Core", "Base"))
-                @eval const $(Symbol(_mod)) = $_mod)
-            end
-        end
-        include_time = statement in sort(collect(statements))
-            # println(statement)
-            try
-                Base.include_string(PrecompileStagingArea, statement)
-                n_succeeded += 1
-            catch
-                # See #28808
-                # @error "Failed to precompile $statement"
-            end
-        end
+    example = joinpath(@__DIR__, "..", "examples", "hello.jl")
+    julia_code = """Base.__init__(); using $package; include("$(example)")"""
+    julia_path = joinpath(Sys.BINDIR, Base.julia_exename())
+    image_file = unsafe_string(Base.JLOptions().image_file)
 
-
-    end
-    """
-    =#
-
-    julia_code = """Base.__init__(); using $package"""
-    cmd = `$(Base.julia_cmd()) --color=yes --project=$project --output-o=sys.o --startup-file=no  -e $julia_code`
+    cmd = `$julia_path -J$image_file --color=yes --project=$project --output-o=sys.o --startup-file=no  -e $julia_code`
     run(cmd)
 end
 
@@ -60,19 +24,22 @@ function create_shared_library(input_object::String, output_library::String)
         o_file = `-Wl,--whole-archive $input_object -Wl,--no-whole-archive`
     end
     
-    clang() do cc
-        run(`$cc -v -shared -L$(julia_libdir) -o $output_library $o_file -ljulia -fuse-ld=lld`)
-    end
+    run(`clang -v -shared -L$(julia_libdir) -o $output_library $o_file -ljulia`)
 end
 
-
-#=
 function create_executable()
-    clang() do cc
-        run(`$cc -DJULIAC_PROGRAM_LIBNAME=  -o  embedding_wrapper.c sys.so 
+    flags = join((cflags(), ldflags(), ldlibs()), " ")
+    flags = Base.shell_split(flags)
+    wrapper = joinpath(@__DIR__, "embedding_wrapper.c")
+     if Sys.iswindows()
+        # functionality doesn't readily exist on this platform
+    elseif Sys.isapple()
+        rpath = `-Wl,-rpath,@executable_path`
+    else
+        rpath = `-Wl,-rpath,\$ORIGIN`
     end
-
+    sysimg = "sys." * Libdl.dlext
+    run(`clang -DJULIAC_PROGRAM_LIBNAME=\"$sysimg\" -o myapp $(wrapper) $sysimg -O2 $rpath $flags`)
 end
-=#
 
 end # module
