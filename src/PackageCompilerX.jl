@@ -14,7 +14,7 @@ end
 # Returns a vector of precompile statemenets
 function run_precompilation_script(project::String, precompile_file::String)
     tracefile = tempname()
-    julia_code = """Base.__init__(); include("$precompile_file")"""
+    julia_code = """Base.__init__(); include($(repr(precompile_file)))"""
     run(`$(get_julia_cmd()) --project=$project --trace-compile=$tracefile -e $julia_code`)
     return tracefile
 end
@@ -22,28 +22,28 @@ end
 function create_object_file(package::Symbol, project::String=active_project(); 
                             precompile_file::Union{String, Nothing}=nothing)
     julia_code = """
+        if !isdefined(Base, :uv_eventloop)
+            Base.reinit_stdio()
+        end
         Base.__init__(); 
         using $package
         """
     example = joinpath(@__DIR__, "..", "examples", "hello.jl")
     julia_code *= """
-        include("$(example)")
+    include($(repr(example)))
         """
     if precompile_file !== nothing
         tracefile = run_precompilation_script(project, precompile_file)
         precompile_code = """
             # This @eval prevents symbols from being put into Main
             @eval Module() begin
-                if !isdefined(Base, :uv_eventloop)
-                    Base.reinit_stdio()
-                end
                 PrecompileStagingArea = Module()
                 for (_pkgid, _mod) in Base.loaded_modules
                     if !(_pkgid.name in ("Main", "Core", "Base"))
                         eval(PrecompileStagingArea, :(const \$(Symbol(_mod)) = \$_mod))
                     end
                 end
-                precompile_statements = readlines("$tracefile")
+                precompile_statements = readlines($(repr(tracefile)))
                 for statement in sort(precompile_statements)
                     # println(statement)
                     try
@@ -84,7 +84,7 @@ function create_executable()
         rpath = `-Wl,-rpath,\$ORIGIN`
     end
     sysimg = "sys." * Libdl.dlext
-    run(`clang -DJULIAC_PROGRAM_LIBNAME=\"$sysimg\" -o myapp $(wrapper) $sysimg -O2 $rpath $flags`)
+    run(`clang -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimg)) -o myapp $(wrapper) $sysimg -O2 $rpath $flags`)
 end
 
 end # module
