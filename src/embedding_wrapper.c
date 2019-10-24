@@ -3,6 +3,7 @@
 // Standard headers
 #include <string.h>
 #include <stdint.h>
+#include <stdio.h>
 
 // Julia headers (for initialization and gc commands)
 #include "uv.h"
@@ -23,7 +24,24 @@ int main(int argc, char *argv[])
     // initialization
     libsupport_init();
 
-    // jl_options.compile_enabled = JL_OPTIONS_COMPILE_OFF;
+    // Get the current exe path so we can compute a relative depot path
+    char *free_path = (char*)malloc(PATH_MAX);
+    size_t path_size = PATH_MAX;
+    if (!free_path)
+       jl_errorf("fatal error: failed to allocate memory: %s", strerror(errno));
+    if (uv_exepath(free_path, &path_size)) {
+       jl_error("fatal error: unexpected error while retrieving exepath");
+    }
+ 
+
+    jl_options.project = "../project/";
+    // Need to be relative to BINDIR...
+    char buf[256];
+    // TODO:_ Check windows
+    snprintf(buf, sizeof(buf), "JULIA_DEPOT_PATH=%s/../../", free_path);
+    putenv(buf);
+    putenv("JULIA_LOAD_PATH=@");
+
     // JULIAC_PROGRAM_LIBNAME defined on command-line for compilation
     jl_options.image_file = JULIAC_PROGRAM_LIBNAME;
     julia_init(JL_IMAGE_JULIA_HOME);
