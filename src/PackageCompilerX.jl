@@ -5,6 +5,7 @@ using Libdl: Libdl
 using Pkg: Pkg
 
 include("juliaconfig.jl")
+include("gen_precompile_statements.jl")
 
 const CC = (Sys.iswindows() ? `x86_64-w64-mingw32-gcc` : `gcc`)
 
