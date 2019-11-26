@@ -11,14 +11,14 @@
 
 JULIA_DEFINE_FAST_TLS()
 
+// TODO: Windows wmain handling as in repl.c
+
 // Declare C prototype of a function defined in Julia
-extern int julia_main(jl_array_t*);
+int julia_main(jl_array_t*);
 
 // main function (windows UTF16 -> UTF8 argument conversion code copied from julia's ui/repl.c)
 int main(int argc, char *argv[])
 {
-    int retcode;
-    int i;
     uv_setup_args(argc, argv); // no-op on Windows
 
     // initialization
@@ -33,8 +33,6 @@ int main(int argc, char *argv[])
        jl_error("fatal error: unexpected error while retrieving exepath");
     }
  
-
-    jl_options.project = "../project/";
     // Need to be relative to BINDIR...
     char buf[256];
     // TODO:_ Check windows
@@ -56,13 +54,13 @@ int main(int argc, char *argv[])
     // Set Base.ARGS to `String[ unsafe_string(argv[i]) for i = 1:argc ]`
     jl_array_t *ARGS = (jl_array_t*)jl_get_global(jl_base_module, jl_symbol("ARGS"));
     jl_array_grow_end(ARGS, argc - 1);
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         jl_value_t *s = (jl_value_t*)jl_cstr_to_string(argv[i]);
         jl_arrayset(ARGS, s, i - 1);
     }
 
     // call the work function, and get back a value
-    retcode = julia_main(ARGS);
+    int retcode = julia_main(ARGS);
 
     // Cleanup and gracefully exit
     jl_atexit_hook(retcode);

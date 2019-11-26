@@ -89,7 +89,9 @@ function create_object_file(object_file::String, packages::Union{Symbol, Vector{
 end
 
 default_sysimage_path() = joinpath(julia_private_libdir(), "sys." * Libdl.dlext)
-backup_sysimage_path() = default_sysimage_path() * ".backup"
+default_sysimage_name() = basename(default_sysimage_path())
+backup_default_sysimage_path() = default_sysimage_path() * ".backup"
+backup_default_sysimage_name() = basename(backup_sysimage_path())
 
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
                          sysimage_path::Union{String,Nothing}=nothing,
@@ -179,6 +181,8 @@ function create_app(package_dir::String;
     app_name = get(() -> error("expected package to have a name entry"), project_toml, "name")
     sysimage_file = app_name * "." * Libdl.dlext
     app_dir = joinpath(package_dir, app_name)
+    # with_project...?
+    Pkg.instantiate()
     # Should we clear out the previous installation??
     
     #=
@@ -196,7 +200,6 @@ function create_app(package_dir::String;
     #@Correctness: Copy artifacts
     #
     if bundle
-        bundle_project(project_toml_path, manifest_toml_path, app_dir)
         bundle_julia_libraries(app_dir)
         if SUPPORTS_ARTIFACTS
             # bundle_artifacts(app_dir)
@@ -222,39 +225,48 @@ function create_app(package_dir::String;
     #end
 end
 
-function bundle_project(project_toml_path, manifest_toml_path, app_dir)
-    cp(project_toml_path, joinpath(app_dir, "project", "Project.toml"); force=true)
-    cp(manifest_toml_path, joinpath(app_dir, "project", "Manifest.toml"); force=true)
-end
-
 function bundle_julia_libraries(app_dir)
     if Sys.isunix()
         app_libdir = joinpath(app_dir, "lib")
         cp(julia_libdir(), app_libdir; force=true)
         rm(joinpath(app_dir, "lib", "julia", "sys.so"); force=true)
-        rm(joinpath(app_dir, "lib", "julia", "sys.so.backup"); force=true)
+        rm(joinpath(app_dir, "lib", "julia", backup_sysimage_name()); force=true)
     end
 end
 
-function bundle_artifacts(app_dir)
-    artifact_toml_path = find_artifacts_toml(app_dir)
-    if artifact_toml_path == nothing
-        return
-    end
-    artifact_dict = Pkg.Artifacts.load_artifacts_toml(artifact_toml_path)
+function bundle_artifacts(app_dir, project_dir)
+    # This is some copy pasting from Pkg.Operations.download_artifacts
+    # It could be avoided if `download_artifacts` took a 
+    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_dir))
+    @info "instantiating..."
 
+    # 
+    pkgs = Pkg.Types.PackageSpec[]
+    Pkg.Operations.load_all_deps!(ctx, pkgs)
+
+    pkg_roots = String[p for p in Pkg.Operations.source_path.(pkgs) if p !== nothing]
+    # TODO: Check for existence of manifest?
+    Operations.download_artifacts([dirname(ctx.env.manifest_file)]; platform=platform, verbose=verbose)
     artifact_paths = String[]
-    @info "installing and bundling artifacts..."
-    for name in keys(artifact_dict)
-        @info "    $name"
-        push!(artifact_paths, ensure_artifact_installed(name, artifact_toml_path))
+    push!(pkg_roots, project_dir)
+    for path in pkg_roots
+        @show path
+        # Check to see if this package has an (Julia)Artifacts.toml
+        for f in Pkg.Artifacts.artifact_names
+            artifacts_toml = joinpath(path, f)
+            if isfile(artifacts_toml)
+                artifact_dict = Pkg.Artifacts.load_artifacts_toml(artifacts_toml)
+
+                   for name in keys(artifact_dict)
+
+                push!(artifact_paths, ensure_artifact_installed(name, artifact_toml_path))
+                @info "Getting artifacts from $(pkg.name)"
+                Pkg.Artifacts.ensure_all_artifacts_installed(artifacts_toml; include_lazy=true)
+
+                break
+            end
+        end
     end
-    app_artifact_dir = joinpath(app_dir, "artifacts")
-    mkpath(app_artifact_dir)
-    for artifact_path in artifact_paths
-        cp(artifact_path, joinpath(app_artifact_dir, basename(artifact_path)); force=true)
-    end
-    @show artifact_paths
 end
 
 # For bundled apps we replicate the file structure adopted by Julia itself.
