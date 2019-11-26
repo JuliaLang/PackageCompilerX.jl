@@ -33,10 +33,8 @@ int main(int argc, char *argv[])
        jl_error("fatal error: unexpected error while retrieving exepath");
     }
  
-    // Need to be relative to BINDIR...
-    char buf[256];
-    // TODO:_ Check windows
-    snprintf(buf, sizeof(buf), "JULIA_DEPOT_PATH=%s/../../", free_path);
+    char buf[PATH_MAX];
+    snprintf(buf, sizeof(buf), "JULIA_DEPOT_PATH=%s/../", free_path);
     putenv(buf);
     putenv("JULIA_LOAD_PATH=@");
 

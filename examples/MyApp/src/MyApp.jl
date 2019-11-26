@@ -2,39 +2,38 @@ module MyApp
 
 using Example
 using Pkg.Artifacts
-import Pkg
 
-greet() = print("Hello World!")
+socrates = joinpath(ensure_artifact_installed("socrates", joinpath(@__DIR__, "..", "Artifacts.toml")), 
+                    "bin", "socrates")
 
-
-
-
-Base.@ccallable function julia_main(ARGS::Vector{String})::Cint
+Base.@ccallable function julia_main()::Cint
     try
-        @show @macroexpand artifact"socrates"
-        println("hello, world")
-        artifact_path = artifact"socrates"
-        @show artifact_path
-        socrates = joinpath(artifact_path, "bin", "socrates")
-        run(`$socrates`)
-        println()
-        #"@show artifact_path
-        #@show readdir(artifact_path)
-        
-        @show unsafe_string(Base.JLOptions().image_file)
-        @show DEPOT_PATH
-        @show pwd()
-        @show LOAD_PATH
-        @show Base.active_project()
-        @show Example.domath(5)
-        @show sin(0.0)
-        @show Sys.BINDIR
-        error()
-        return 0
-    catch e
-        Base.showerror(stdout, catch_backtrace())
-        return -1
+        real_main()
+    catch
+        Base.invokelatest(Base.display_error, Base.catch_stack())
+        return 1
     end
+    return 0
+end
+
+function real_main()
+    @show ARGS
+    @show Base.PROGRAM_FILE
+    @show DEPOT_PATH
+    @show LOAD_PATH
+    @show pwd()
+    @show Base.active_project()
+    @show Sys.BINDIR
+    @info "Running an artifact:"
+    run(`$socrates`)
+    @show unsafe_string(Base.JLOptions().image_file)
+    @show Example.domath(5)
+    @show sin(0.0)
+    return
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    real_main()
 end
 
 end # module
