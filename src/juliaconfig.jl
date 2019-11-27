@@ -1,7 +1,5 @@
 # adopted from https://github.com/JuliaLang/julia/blob/release-0.6/contrib/julia-config.jl
 
-threading_on() = ccall(:jl_threading_enabled, Cint, ()) != 0
-
 function shell_escape(str)
     str = replace(str, "'" => "'\''")
     return "'$str'"
@@ -44,8 +42,7 @@ function ldlibs(relative_path=nothing)
         "julia"
     end
     if Sys.isunix()
-        #return "-Wl,-rpath,$(shell_escape(julia_libdir())) -Wl,-rpath,$(shell_escape(julia_private_libdir())) -l$libname"
-        return "-l$libname"
+        return "-Wl,-rpath,$(shell_escape(julia_libdir())) -Wl,-rpath,$(shell_escape(julia_private_libdir())) -l$libname"
     else
         return "-l$libname -lopenlibm"
     end
@@ -56,9 +53,6 @@ function cflags()
     print(flags, "-std=gnu99")
     include = shell_escape(julia_includedir())
     print(flags, " -I", include)
-    if threading_on()
-        print(flags, " -DJULIA_ENABLE_THREADING=1")
-    end
     if Sys.isunix()
         print(flags, " -fPIC")
     end
