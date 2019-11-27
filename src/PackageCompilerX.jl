@@ -176,7 +176,8 @@ function create_executable_from_sysimage(;sysimage_path::String,
     return nothing
 end
 
-function create_app(package_dir::String;
+function create_app(package_dir::String,
+                    app_dir::String,
                     precompile_execution_file::Union{String,Nothing}=nothing,
                     precompile_statements_file::Union{String,Nothing}=nothing,
                     # sysimage_path::Union{String,Nothing}=nothing, # optional sysimage
@@ -193,7 +194,6 @@ function create_app(package_dir::String;
         error("expected package to have a `name`-entry")
     end
     sysimage_file = app_name * "." * Libdl.dlext
-    app_dir = joinpath(package_dir, app_name)
 
     ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
     @debug "instantiating project at \"$project_toml_path\""
