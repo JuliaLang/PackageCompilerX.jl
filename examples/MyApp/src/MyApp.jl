@@ -24,8 +24,9 @@ function real_main()
     @show pwd()
     @show Base.active_project()
     @show Sys.BINDIR
-    @info "Running an artifact:"
+    println("Running an app:")
     run(`$socrates`)
+    println()
     @show unsafe_string(Base.JLOptions().image_file)
     @show Example.domath(5)
     @show sin(0.0)

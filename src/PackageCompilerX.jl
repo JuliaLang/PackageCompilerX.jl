@@ -32,19 +32,18 @@ function get_julia_cmd()
     cmd = `$julia_path --color=yes --startup-file=no --cpu-target=$DEFAULT_TARGET`
 end
 
-# TODO: Add output file?
-function run_precompilation_script(project::String, precompile_file::String)
-    tracefile = tempname()
-    julia_code = """Base.__init__(); include($(repr(precompile_file)))"""
-    cmd = `$(get_julia_cmd()) --sysimage=$(current_process_sysimage_path()) --project=$project
-           --compile=all --trace-compile=$tracefile -e $julia_code`
-    @debug "run_precompilation_script: running $cmd"
-    run(cmd)
-    return tracefile
+
+all_stdlibs() = readdir(Sys.STDLIB)
+
+function rewrite_sysimg_jl_only_needed_stdlibs(sysimg_jl_path::String, stdlibs::Vector{String})
+    sysimg_source_path = Base.find_source_file("sysimg.jl")
+    # replaces the hardcoded list of stdlibs in sysimg.jl with
+    # the stdlibs that is given as argument
+    modifed = replace(p, r"stdlibs = \[(.*?)\]"s => string("stdlibs = [", join(":" .* string.(stdlibs), ",\n"), "]"))
+    return modified
 end
 
-
-function bootstrap_sys()
+function create_fresh_base_sysimage(stdlibs::Vector{String})
     tmp = mktempdir()
     sysimg_source_path = Base.find_source_file("sysimg.jl")
     base_dir = dirname(sysimg_source_path)
@@ -60,12 +59,23 @@ function bootstrap_sys()
         read(cmd)
 
         # Use that to create sys.ji
-        cmd = `$(get_julia_cmd()) --sysimage=$tmp_corecompiler_ji --output-ji=$tmp_sys_ji $sysimg_source_path`
+        cmd = `$(get_julia_cmd()) --sysimage=$tmp_corecompiler_ji -g1 -O0 --output-ji=$tmp_sys_ji $sysimg_source_path`
         @debug "running $cmd"
         read(cmd)
     end
 
     return tmp_sys_ji
+end
+
+# TODO: Add output file?
+function run_precompilation_script(project::String, precompile_file::Union{String, Nothing})
+    # TODO: Audit tempname usage
+    tracefile = tempname()
+    cmd = `$(get_julia_cmd()) --sysimage=$(current_process_sysimage_path()) --project=$project
+            --compile=all --trace-compile=$tracefile $(precompile_file === nothing ? "" : precompile_file)`
+    @debug "run_precompilation_script: running $cmd"
+    run(cmd)
+    return tracefile
 end
 
 function create_sysimg_object_file(object_file::String, packages::Union{Symbol, Vector{Symbol}};
@@ -86,41 +96,37 @@ function create_sysimg_object_file(object_file::String, packages::Union{Symbol, 
     end
     
     # handle precompilation
-    if precompile_execution_file !== nothing || precompile_statements_file !== nothing
-        precompile_statements = ""
-        if precompile_execution_file !== nothing
-            @debug "running precompilation execution script..."
-            tracefile = run_precompilation_script(project, precompile_execution_file)
-            precompile_statements *= "append!(precompile_statements, readlines($(repr(tracefile))))\n"
-        end
-        if precompile_statements_file != nothing
-            precompile_statements *= "append!(precompile_statements, readlines($(repr(precompile_statements_file))))\n"
-        end
-
-        precompile_code = """
-            # This @eval prevents symbols from being put into Main
-            @eval Module() begin
-                PrecompileStagingArea = Module()
-                for (_pkgid, _mod) in Base.loaded_modules
-                    if !(_pkgid.name in ("Main", "Core", "Base"))
-                        eval(PrecompileStagingArea, :(const \$(Symbol(_mod)) = \$_mod))
-                    end
-                end
-                precompile_statements = String[]
-                $precompile_statements
-                for statement in sort(precompile_statements)
-                    # println(statement)
-                    try
-                        Base.include_string(PrecompileStagingArea, statement)
-                    catch
-                        # See julia issue #28808
-                        @error "failed to execute \$statement"
-                    end
-                end
-            end # module
-            """
-        julia_code *= precompile_code
+    precompile_statements = ""
+    @debug "running precompilation execution script..."
+    tracefile = run_precompilation_script(project, precompile_execution_file)
+    precompile_statements *= "append!(precompile_statements, readlines($(repr(tracefile))))\n"
+    if precompile_statements_file != nothing
+        precompile_statements *= "append!(precompile_statements, readlines($(repr(precompile_statements_file))))\n"
     end
+
+    precompile_code = """
+        # This @eval prevents symbols from being put into Main
+        @eval Module() begin
+            PrecompileStagingArea = Module()
+            for (_pkgid, _mod) in Base.loaded_modules
+                if !(_pkgid.name in ("Main", "Core", "Base"))
+                    eval(PrecompileStagingArea, :(const \$(Symbol(_mod)) = \$_mod))
+                end
+            end
+            precompile_statements = String[]
+            $precompile_statements
+            for statement in sort(precompile_statements)
+                # println(statement)
+                try
+                    Base.include_string(PrecompileStagingArea, statement)
+                catch
+                    # See julia issue #28808
+                    @error "failed to execute \$statement"
+                end
+            end
+        end # module
+        """
+    julia_code *= precompile_code
 
     # finally, make julia output the resulting object file
     @debug "creating object file at $object_file"
@@ -140,7 +146,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
                          project::String=active_project(),
                          precompile_execution_file::Union{String, Nothing}=nothing,
                          precompile_statements_file::Union{String, Nothing}=nothing,
-                         incremental=true,
+                         incremental::Bool=true,
                          replace_default_sysimg::Bool=false)
     if sysimage_path === nothing && replace_default_sysimg == false
         error("`sysimage_path` cannot be `nothing` if `replace_default_sysimg` is `false`")
@@ -151,7 +157,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
     end
 
     if !incremental
-        base_sysimg = bootstrap_sys()
+        base_sysimg = create_fresh_base_sysimage()
     else
         base_sysimg = current_process_sysimage_path()
     end
