@@ -23,7 +23,9 @@ function real_main()
     @show LOAD_PATH
     @show pwd()
     @show Base.active_project()
+    @show Threads.nthreads()
     @show Sys.BINDIR
+    display(Base.loaded_modules)
     println("Running an app:")
     run(`$socrates`)
     println()

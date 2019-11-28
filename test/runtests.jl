@@ -20,6 +20,9 @@ using Libdl
         create_app(app_source_dir, app_exe_dir; incremental=incremental, force=true)
         app_path = abspath(app_exe_dir, "bin", "MyApp" * (Sys.iswindows() ? ".exe" : ""))
         app_output = read(`$app_path`, String)
+        println("***APP OUTPUT incremental=$(incremental)***")
+        println(app_output)
+        println("*******************************************")
         @test occursin("Example.domath", app_output)
         @test occursin("ἔοικα γοῦν τούτου", app_output)
     end

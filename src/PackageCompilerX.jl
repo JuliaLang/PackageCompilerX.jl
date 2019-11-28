@@ -35,16 +35,16 @@ end
 
 all_stdlibs() = readdir(Sys.STDLIB)
 
-function rewrite_sysimg_jl_only_needed_stdlibs(sysimg_jl_path::String, stdlibs::Vector{String})
+function rewrite_sysimg_jl_only_needed_stdlibs(stdlibs::Vector{String})
     sysimg_source_path = Base.find_source_file("sysimg.jl")
+    sysimg_content = read(sysimg_source_path, String)
     # replaces the hardcoded list of stdlibs in sysimg.jl with
     # the stdlibs that is given as argument
-    modifed = replace(p, r"stdlibs = \[(.*?)\]"s => string("stdlibs = [", join(":" .* string.(stdlibs), ",\n"), "]"))
-    return modified
+    return replace(sysimg_content, r"stdlibs = \[(.*?)\]"s => string("stdlibs = [", join(":" .* string.(stdlibs), ",\n"), "]"))
 end
 
 function create_fresh_base_sysimage(stdlibs::Vector{String})
-    tmp = mktempdir()
+    tmp = mktempdir(cleanup=false)
     sysimg_source_path = Base.find_source_file("sysimg.jl")
     base_dir = dirname(sysimg_source_path)
     tmp_corecompiler_ji = joinpath(tmp, "corecompiler.ji")
@@ -59,9 +59,16 @@ function create_fresh_base_sysimage(stdlibs::Vector{String})
         read(cmd)
 
         # Use that to create sys.ji
-        cmd = `$(get_julia_cmd()) --sysimage=$tmp_corecompiler_ji -g1 -O0 --output-ji=$tmp_sys_ji $sysimg_source_path`
-        @debug "running $cmd"
-        read(cmd)
+        new_sysimage_content = rewrite_sysimg_jl_only_needed_stdlibs(stdlibs)
+        new_sysimage_source_path = joinpath(base_dir, "sysimage_packagecompiler_x.jl")
+        write(new_sysimage_source_path, new_sysimage_content)
+        try
+            cmd = `$(get_julia_cmd()) --sysimage=$tmp_corecompiler_ji -g1 -O0 --output-ji=$tmp_sys_ji $new_sysimage_source_path`
+            @debug "running $cmd"
+            read(cmd)
+        finally
+            rm(new_sysimage_source_path; force=true)
+        end
     end
 
     return tmp_sys_ji
@@ -71,8 +78,14 @@ end
 function run_precompilation_script(project::String, precompile_file::Union{String, Nothing})
     # TODO: Audit tempname usage
     tracefile = tempname()
+    if precompile_file == nothing
+        arg = `-e ''`
+    else
+        arg = `$precompile_file`
+    end
+    touch(tracefile)
     cmd = `$(get_julia_cmd()) --sysimage=$(current_process_sysimage_path()) --project=$project
-            --compile=all --trace-compile=$tracefile $(precompile_file === nothing ? "" : precompile_file)`
+            --compile=all --trace-compile=$tracefile $arg`
     @debug "run_precompilation_script: running $cmd"
     run(cmd)
     return tracefile
@@ -141,6 +154,21 @@ default_sysimg_name() = basename(default_sysimg_path())
 backup_default_sysimg_path() = default_sysimg_path() * ".backup"
 backup_default_sysimg_name() = basename(backup_default_sysimg_path())
 
+# TODO: Also check UUIDs for stdlibs, not only names
+function gather_stdlibs_project(project::String)
+    project_toml_path = abspath(Pkg.Types.projectfile_path(project; strict=true))
+    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
+    @assert ctx.env.manifest !== nothing
+    stdlibs = all_stdlibs()
+    stdlibs_project = String[]
+    for (uuid, pkg) in ctx.env.manifest
+        if pkg.name in stdlibs
+            push!(stdlibs_project, pkg.name)
+        end
+    end
+    return stdlibs_project
+end
+
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
                          sysimage_path::Union{String,Nothing}=nothing,
                          project::String=active_project(),
@@ -157,7 +185,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
     end
 
     if !incremental
-        base_sysimg = create_fresh_base_sysimage()
+        stdlibs = gather_stdlibs_project(project)
+        base_sysimg = create_fresh_base_sysimage(stdlibs)
     else
         base_sysimg = current_process_sysimage_path()
     end
