@@ -143,7 +143,7 @@ function create_sysimg_object_file(object_file::String, packages::Union{Symbol, 
 
     # finally, make julia output the resulting object file
     @debug "creating object file at $object_file"
-    @info "PackageCompilerX: creating system image object file, this might take a while..."
+    
     cmd = `$(get_julia_cmd()) --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
     @debug "running $cmd"
     run(cmd)
@@ -352,7 +352,7 @@ function create_executable_from_sysimg(;sysimage_path::String,
     else
         rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib:\$ORIGIN/../lib/julia`
     end
-    cmd = `$CC -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $rpath $flags`
+    cmd = `$CC -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $rpath -L./lib $flags`
     @debug "running $cmd"
     run(cmd)
     return nothing
