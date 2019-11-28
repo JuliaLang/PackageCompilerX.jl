@@ -26,7 +26,7 @@ function real_main()
     @show Threads.nthreads()
     @show Sys.BINDIR
     display(Base.loaded_modules)
-    println("Running an app:")
+    println("Running an artifact:")
     run(`$socrates`)
     println()
     @show unsafe_string(Base.JLOptions().image_file)

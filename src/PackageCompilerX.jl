@@ -175,6 +175,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
                          precompile_execution_file::Union{String, Nothing}=nothing,
                          precompile_statements_file::Union{String, Nothing}=nothing,
                          incremental::Bool=true,
+                         filter_stdlibs=false,
                          replace_default_sysimg::Bool=false)
     if sysimage_path === nothing && replace_default_sysimg == false
         error("`sysimage_path` cannot be `nothing` if `replace_default_sysimg` is `false`")
@@ -184,8 +185,16 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
         sysimage_path = joinpath(tmp, string("sys.", Libdl.dlext))
     end
 
+    if filter_stdlibs && incremental
+        error("must use `incremental=false` to use `filter_stdlibs=true`")
+    end
+
     if !incremental
-        stdlibs = gather_stdlibs_project(project)
+        if filter_stdlibs
+            stdlibs = gather_stdlibs_project(project)
+        else
+            stdlibs= all_stdlibs()
+        end
         base_sysimg = create_fresh_base_sysimage(stdlibs)
     else
         base_sysimg = current_process_sysimage_path()
@@ -274,6 +283,7 @@ function create_app(package_dir::String,
                     precompile_execution_file::Union{String,Nothing}=nothing,
                     precompile_statements_file::Union{String,Nothing}=nothing,
                     incremental=false,
+                    filter_stdlibs=false,
                     audit=true,
                     force=false)
     project_toml_path = abspath(Pkg.Types.projectfile_path(package_dir; strict=true))
@@ -312,7 +322,8 @@ function create_app(package_dir::String,
     # TODO: Create in a temp dir and then move it into place?
     # TODO: Maybe avoid this cd?
     cd(app_dir) do
-        create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, incremental=incremental)
+        create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
+                        incremental=incremental, filter_stdlibs=filter_stdlibs)
         mkpath("bin")
         create_executable_from_sysimg(; sysimage_path=sysimg_file, executable_path=joinpath("bin", app_name))
         mv(sysimg_file, joinpath("bin", sysimg_file))
