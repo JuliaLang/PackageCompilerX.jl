@@ -16,9 +16,15 @@ using Libdl
     # TODO: Also test something that actually gives audit warnings
     @test_logs PackageCompilerX.audit_app(app_source_dir)
     app_exe_dir = joinpath(tmp, "MyApp")
+    first = true
     for incremental in (true, false)
         create_app(app_source_dir, app_exe_dir; incremental=incremental, force=true)
         app_path = abspath(app_exe_dir, "bin", "MyApp" * (Sys.iswindows() ? ".exe" : ""))
+        if Sys.islinux() && first
+            run(`ldd $app_path`)
+            run(`objdump -x $app_path`)
+        end
+        first = false
         app_output = read(`$app_path`, String)
         @test occursin("Example.domath", app_output)
         @test occursin("ἔοικα γοῦν τούτου", app_output)
