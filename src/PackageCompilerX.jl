@@ -350,7 +350,7 @@ function create_executable_from_sysimg(;sysimage_path::String,
     else
         rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib:\$ORIGIN/../lib/julia`
     end
-    cmd = `$CC -v -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 -L../lib $rpath $flags`
+    cmd = `$CC -v -Wl,-v -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 -L../lib $rpath $flags`
     @debug "running $cmd"
     run(cmd)
     return nothing
