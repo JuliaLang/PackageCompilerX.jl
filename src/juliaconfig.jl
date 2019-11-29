@@ -24,7 +24,7 @@ end
 julia_includedir() = abspath(Sys.BINDIR, Base.INCLUDEDIR, "julia")
 
 function ldflags()
-    fl = "" #-L$(shell_escape(julia_libdir()))"
+    fl = "-L$(shell_escape(julia_libdir()))"
     if Sys.iswindows()
         fl = fl * " -Wl,--stack,8388608"
         fl = fl * " -Wl,--export-all-symbols"

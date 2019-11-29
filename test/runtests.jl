@@ -7,12 +7,10 @@ ENV["JULIA_DEBUG"] = "PackageCompilerX"
 @testset "PackageCompilerX.jl" begin
     tmp = mktempdir()
     sysimage_path = joinpath(tmp, "sys." * Libdl.dlext)
-    #=
     create_sysimage(:Example; sysimage_path=sysimage_path,
                               precompile_execution_file="precompile_execution.jl",
                               precompile_statements_file="precompile_statements.jl")
     run(`$(Base.julia_cmd()) -J $(sysimage_path) -e 'println(1337)'`)
-    =#
 
     # Test creating an app
     app_source_dir = joinpath(@__DIR__, "..", "examples/MyApp/")

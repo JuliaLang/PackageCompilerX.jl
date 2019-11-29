@@ -348,9 +348,9 @@ function create_executable_from_sysimg(;sysimage_path::String,
     elseif Sys.isapple()
         rpath = `-Wl,-rpath,'@executable_path' -Wl,-rpath,'@executable_path/../lib'`
     else
-        rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib:\$ORIGIN/../lib/julia`
+        rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib`
     end
-    cmd = `$CC -v -Wl,--verbose -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 -L../lib $rpath $flags`
+    cmd = `$CC -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $rpath $flags`
     @debug "running $cmd"
     run(cmd)
     return nothing
