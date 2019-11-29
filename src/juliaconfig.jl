@@ -46,7 +46,7 @@ function ldlibs(relative_path=nothing)
     elseif Sys.iswindows()
         return "-l$libname -lopenlibm"
     else
-        return ""
+        return "-l$libname"
     end
 end
 
