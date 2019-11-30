@@ -1,6 +1,5 @@
 module PackageCompilerX
 
-
 # TODO: Add good debugging statements
 # TODO: sysimage or sysimg...
 
@@ -21,22 +20,24 @@ current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
 
 all_stdlibs() = readdir(Sys.STDLIB)
 
-# TODO: Check more carefully how to just use mingw on windows without using cygwin.
+yesno(b::Bool) = b ? "yes" : "no"
+
 function get_compiler()
+    cc = get(ENV, "JULIA_CC", nothing)
+    if cc !== nothing
+        return `$cc`
+    end
+    if Sys.which("gcc") !== nothing
+        return `gcc`
+    elseif Sys.which("clang") !== nothing
+        return `clang`
+    end
     if Sys.iswindows()
-        if Sys.which("gcc") !== nothing
-            return `gcc`
-        elseif Sys.which("x86_64-w64-mingw32-gcc") !== nothing
+        if Sys.which("x86_64-w64-mingw32-gcc") !== nothing
             return `x86_64-w64-mingw32-gcc`
         end
-    else
-        if Sys.which("gcc") !== nothing
-            return `gcc`
-        elseif Sys.which("clang") !== nothing
-            return `clang`
-        end
-        error("could not find a compiler, looked for `gcc` and `clang`")
     end
+    error("could not find a compiler, looked for `gcc` and `clang`")
 end
 
 function get_julia_cmd()
@@ -108,7 +109,8 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
                             base_sysimage::String,
                             precompile_execution_file::Union{Vector{String}, Nothing},
                             precompile_statements_file::Union{Vector{String}, Nothing},
-                            cpu_target::String)
+                            cpu_target::String,
+                            compiled_modules::Bool)
     # include all packages into the sysimg
     julia_code = """
         if !isdefined(Base, :uv_eventloop)
@@ -126,12 +128,12 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     tracefiles = String[]
     for file in (precompile_execution_file === nothing ? (nothing,) : precompile_execution_file)
         tracefile = run_precompilation_script(project, file)
-        precompile_statements *= "append!(precompile_statements, readlines($(repr(tracefile))))\n"
+        precompile_statements *= "    append!(precompile_statements, readlines($(repr(tracefile))))\n"
     end
     if precompile_statements_file != nothing
         for file in precompile_statements_file
             precompile_statements *= 
-                "append!(precompile_statements, readlines($(repr(file))))\n"
+                "    append!(precompile_statements, readlines($(repr(file))))\n"
         end
     end
 
@@ -163,7 +165,8 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @debug "creating object file at $object_file"
     @info "PackageCompilerX: creating system image object file, this might take a while..."
 
-    cmd = `$(get_julia_cmd()) --cpu-target=$cpu_target --sysimage=$base_sysimage --project=$project --output-o=$(object_file) -e $julia_code`
+    cmd = `$(get_julia_cmd()) --compiled-modules=$(yesno(compiled_modules)) --cpu-target=$cpu_target
+                              --sysimage=$base_sysimage --project=$project --output-o=$(object_file) -e $julia_code`
     @debug "running $cmd"
     run(cmd)
 end
@@ -189,7 +192,7 @@ function gather_stdlibs_project(project::String)
 end
 
 """
-    $SIGNATURES
+    SIGNATURES
 """
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
@@ -200,7 +203,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          filter_stdlibs=false,
                          replace_default::Bool=false,
                          cpu_target::String=NATIVE_CPU_TARGET,
-                         base_sysimage::Union{Nothing, String}=nothing)
+                         base_sysimage::Union{Nothing, String}=nothing,
+                         compiled_modules=true)
     if sysimage_path === nothing
         if replace_default == false
             error("`sysimage_path` cannot be `nothing` if `replace_default` is `false`")
@@ -241,7 +245,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                               base_sysimage=base_sysimage,
                               precompile_execution_file=precompile_execution_file,
                               precompile_statements_file=precompile_statements_file,
-                              cpu_target=cpu_target)
+                              cpu_target=cpu_target,
+                              compiled_modules=compiled_modules)
     create_sysimg_from_object_file(object_file, sysimage_path)
     if replace_default
         if !isfile(backup_default_sysimg_path())
@@ -265,7 +270,8 @@ function create_sysimg_from_object_file(input_object::String, sysimage_path::Str
         o_file = `-Wl,--whole-archive $input_object -Wl,--no-whole-archive`
     end
     extra = Sys.iswindows() ? `-Wl,--export-all-symbols` : ``
-    run(`$(get_compiler()) -shared -L$(julia_libdir) -o $sysimage_path $o_file -ljulia $extra`)
+    bitflag = Int == Int32 ? "-m32" : "-m64"
+    run(`$(get_compiler()) -shared -L$(julia_libdir) -o $sysimage_path $o_file -ljulia $bitflag $extra`)
     return nothing
 end
 
@@ -391,13 +397,15 @@ function create_app(package_dir::String,
                             precompile_execution_file=precompile_execution_file,
                             precompile_statements_file=precompile_statements_file,
                             cpu_target=APP_CPU_TARGET,
-                            base_sysimage=tmp_base_sysimage)
+                            base_sysimage=tmp_base_sysimage,
+                            compiled_modules=false #= workaround julia#34076=#)
         else
             create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path,
                                               incremental=incremental, filter_stdlibs=filter_stdlibs,
                                               precompile_execution_file=precompile_execution_file,
                                               precompile_statements_file=precompile_statements_file,
-                                              cpu_target=APP_CPU_TARGET)
+                                              cpu_target=APP_CPU_TARGET,
+                                              compiled_modules=false #= workaround julia#34076=#)
         end
 
         create_executable_from_sysimg(; sysimage_path=sysimg_file, executable_path=app_name)
@@ -424,7 +432,8 @@ function create_executable_from_sysimg(;sysimage_path::String,
     else
         rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib`
     end
-    cmd = `$(get_compiler()) -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $rpath $flags`
+    bitflag = Int == Int32 ? "-m32" : "-m64"
+    cmd = `$(get_compiler()) -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $bitflag $rpath $flags`
     @debug "running $cmd"
     run(cmd)
     return nothing

@@ -35,7 +35,7 @@ function ldflags()
 end
 
 # TODO
-function ldlibs(relative_path=nothing)
+function ldlibs()
     libname = if ccall(:jl_is_debugbuild, Cint, ()) != 0
         "julia-debug"
     else
