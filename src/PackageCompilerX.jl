@@ -325,7 +325,8 @@ function create_app(package_dir::String,
     binpath = joinpath(app_dir, "bin")
     mkpath(binpath)
     cd(binpath) do
-        create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, incremental=incremental)
+                create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
+                        incremental=incremental, filter_stdlibs=filter_stdlibs)
         create_executable_from_sysimg(; sysimage_path=sysimg_file, executable_path=app_name)
         if Sys.isapple()
             cmd = `install_name_tool -change $sysimg_file @rpath/$sysimg_file $app_name`
