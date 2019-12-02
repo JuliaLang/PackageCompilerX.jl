@@ -1,22 +1,16 @@
 # PackageCompilerX
 
-PackageCompilerX is a
+PackageCompilerX is a Julia package with two main purposes:
 
-It has two main purposes
+1. Creating custom sysimages for reduced latency when working locally with
+   packages that has a high startup time.
 
-## Creating custom sysimages for reduced latency when working locally
+2. Creating "apps" which are a bundle of files including an executable that can
+   be sent and run on other machines without Julia being installed on that machine.
 
-A sysimage is a 
-
-Compile packages for reduced latency and 
-
-2. Creating "apps"
-
-
-
-Apologies to Windows users since the code snippets in the manual uses Linux
-syntax like `ls` (`dir` in Windows) and `cat` but hopefully these commands are
-common enough that the points still come across).
+The manual contains some uses of Linux commands like `ls` (`dir` in Windows)
+and `cat` but hopefully these commands are common enough that the points still
+come across).
 
 
 ## Manual Outline

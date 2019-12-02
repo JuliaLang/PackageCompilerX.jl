@@ -2,7 +2,6 @@
 
 ## Relocatability
 
-In order for 
 
 ### Artifacts
 
@@ -12,10 +11,6 @@ PackageCompilerX provdes a function `audit_app(project::String)[@ref]` that trie
 
 Creating a sysimage can in PackageCompilerX either be done "from scratch" (`incremental=false`) or it can
 be done as a 
-
-
-
-
 
 
 ### Incremental vs non-incremental sysimages
