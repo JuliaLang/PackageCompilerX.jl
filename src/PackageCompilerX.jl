@@ -1,5 +1,6 @@
 module PackageCompilerX
 
+
 # TODO: Add good debugging statements
 # TODO: sysimage or sysimg...
 
@@ -7,13 +8,25 @@ using Base: active_project
 using Libdl: Libdl
 using Pkg: Pkg
 using UUIDs: UUID
+using DocStringExtensions: SIGNATURES, TYPEDEF
 
 export create_sysimage, create_app, audit_app, restore_default_sysimg
 
 include("juliaconfig.jl")
 
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
-const CC = (Sys.iswindows() ? `x86_64-w64-mingw32-gcc` : `gcc`)
+function get_compiler()
+    if Sys.iswindows()
+        return `x86_64-w64-mingw32-gcc`
+    else
+        if Sys.which("gcc") !== nothing
+            return `gcc`
+        elseif Sys.which("clang") !== nothing
+            return `clang`
+        end
+        error("could not find a compiler, looked for `gcc` and `clang`")
+    end
+end
 
 # TODO: Be able to set target for -C?
 # TODO: Change to commented default ?
@@ -25,7 +38,6 @@ function get_julia_cmd()
     julia_path = joinpath(Sys.BINDIR, Base.julia_exename())
     cmd = `$julia_path --color=yes --startup-file=no --cpu-target=$DEFAULT_TARGET`
 end
-
 
 all_stdlibs() = readdir(Sys.STDLIB)
 
@@ -85,13 +97,12 @@ function run_precompilation_script(project::String, precompile_file::Union{Strin
     return tracefile
 end
 
-function create_sysimg_object_file(object_file::String, packages::Union{Symbol, Vector{Symbol}};
+function create_sysimg_object_file(object_file::String, packages::Vector{Symbol};
                             project::String,
                             base_sysimg::String,
-                            precompile_execution_file::Union{String, Vector{String}, Nothing},
-                            precompile_statements_file::Union{String, Vector{String}, Nothing})
+                            precompile_execution_file::Union{Vector{String}, Nothing},
+                            precompile_statements_file::Union{Vector{String}, Nothing})
     # include all packages into the sysimg
-    packages = vcat(packages)
     julia_code = """
         if !isdefined(Base, :uv_eventloop)
             Base.reinit_stdio()
@@ -105,10 +116,16 @@ function create_sysimg_object_file(object_file::String, packages::Union{Symbol, 
     # handle precompilation
     precompile_statements = ""
     @debug "running precompilation execution script..."
-    tracefile = run_precompilation_script(project, precompile_execution_file)
-    precompile_statements *= "append!(precompile_statements, readlines($(repr(tracefile))))\n"
+    tracefiles = String[]
+    for file in (precompile_execution_file === nothing ? (nothing,) : precompile_execution_file)
+        tracefile = run_precompilation_script(project, file)
+        precompile_statements *= "append!(precompile_statements, readlines($(repr(tracefile))))\n"
+    end
     if precompile_statements_file != nothing
-        precompile_statements *= "append!(precompile_statements, readlines($(repr(precompile_statements_file))))\n"
+        for file in precompile_statements_file
+            precompile_statements *= 
+                "append!(precompile_statements, readlines($(repr(file))))\n"
+        end
     end
 
     precompile_code = """
@@ -165,15 +182,13 @@ function gather_stdlibs_project(project::String)
 end
 
 """
-    create_sysimage(packages
-
-## Keywords
+    $SIGNATURES
 """
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
                          project::String=active_project(),
-                         precompile_execution_file::Union{String, Vector{String}, Nothing},
-                         precompile_statements_file::Union{String, Vector{String}, Nothing})
+                         precompile_execution_file::Union{String, Vector{String}, Nothing}=nothing,
+                         precompile_statements_file::Union{String, Vector{String}, Nothing}=nothing,
                          incremental::Bool=true,
                          filter_stdlibs=false,
                          replace_defaut::Bool=false)
@@ -189,6 +204,11 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     if filter_stdlibs && incremental
         error("must use `incremental=false` to use `filter_stdlibs=true`")
     end
+
+    # Functions lower down handles precompilation file as arrays so convert here
+    packages = vcat(packages)
+    precompile_execution_file !== nothing && (precompile_execution_file = vcat(precompile_execution_file))
+    precompile_statements_file !== nothing && (precompile_statements = vcat(precompile_statements_file))
 
     if !incremental
         if filter_stdlibs
@@ -230,10 +250,15 @@ function create_sysimg_from_object_file(input_object::String, sysimage_path::Str
         o_file = `-Wl,--whole-archive $input_object -Wl,--no-whole-archive`
     end
     extra = Sys.iswindows() ? `-Wl,--export-all-symbols` : ``
-    run(`$CC -shared -L$(julia_libdir) -o $sysimage_path $o_file -ljulia $extra`)
+    run(`$(get_compiler()) -shared -L$(julia_libdir) -o $sysimage_path $o_file -ljulia $extra`)
     return nothing
 end
 
+"""
+    $SIGNATURES
+
+lalala
+"""
 function restore_default_sysimg()
     if !isfile(backup_default_sysimg_path())
         error("did not find a backup sysimg")
@@ -248,7 +273,7 @@ const REQUIRES = "Requires" => UUID("ae029012-a4dd-5104-9daa-d747884805df")
 
 # Check for things that might indicate that the app or dependencies 
 """
-    audit_app(project_dir::String)
+    $SIGNATURES
 
 Check for possible problems with regfards to relocatability at 
 the project at `project_dir`.
@@ -289,10 +314,13 @@ function audit_app(ctx::Pkg.Types.Context)
     return
 end
 
+"""
+    $SIGNATURES
+"""
 function create_app(package_dir::String,
                     app_dir::String;
-                    precompile_execution_file::Union{String, Nothing}=nothing,
-                    precompile_statements_file::Union{String, Nothing}=nothing,
+                    precompile_execution_file::Union{String, Vector{String}, Nothing}=nothing,
+                    precompile_statements_file::Union{String, Vector{String}, Nothing}=nothing,
                     incremental=false,
                     filter_stdlibs=false,
                     audit=true,
@@ -329,12 +357,13 @@ function create_app(package_dir::String,
     bundle_artifacts(ctx, app_dir)
 
     # TODO: Create in a temp dir and then move it into place?
-    # TODO: Maybe avoid this cd?
     binpath = joinpath(app_dir, "bin")
     mkpath(binpath)
     cd(binpath) do
                 create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
-                        incremental=incremental, filter_stdlibs=filter_stdlibs)
+                                incremental=incremental, filter_stdlibs=filter_stdlibs,
+                                precompile_execution_file = precompile_execution_file,
+                                precompile_statements_file = precompile_statements_file)
         create_executable_from_sysimg(; sysimage_path=sysimg_file, executable_path=app_name)
         if Sys.isapple()
             cmd = `install_name_tool -change $sysimg_file @rpath/$sysimg_file $app_name`
@@ -359,7 +388,7 @@ function create_executable_from_sysimg(;sysimage_path::String,
     else
         rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib`
     end
-    cmd = `$CC -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $rpath $flags`
+    cmd = `$(get_compiler()) -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $rpath $flags`
     @debug "running $cmd"
     run(cmd)
     return nothing

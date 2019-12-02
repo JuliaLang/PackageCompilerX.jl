@@ -8,6 +8,12 @@ makedocs(
     sitename = "PackageCompilerX",
     pages = Any[
         "Home" => "index.md",
+        "Manual" => [
+            "prereq.md"
+            "sysimages.md"
+            "apps.md"
+        ],
+
         "Examples" => Any[
             "examples/ohmyrepl.md",
         ],

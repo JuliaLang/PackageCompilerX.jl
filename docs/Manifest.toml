@@ -52,7 +52,7 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[PackageCompilerX]]
-deps = ["Libdl", "Pkg", "UUIDs"]
+deps = ["DocStringExtensions", "Libdl", "Pkg", "UUIDs"]
 path = ".."
 uuid = "dffaa6cc-da53-48e5-b007-4292dfcc27f1"
 version = "0.1.0"
