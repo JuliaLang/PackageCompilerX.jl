@@ -19,7 +19,7 @@ end
 include("juliaconfig.jl")
 
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
-const CC = (Sys.iswindows() ? `x86_64-w64-mingw32-gcc` : `gcc`)
+const CC = (Sys.iswindows() ? `x86_64-w64-mingw32-gcc` : `clang`)
 
 # TODO: Be able to set target for -C?
 # TODO: Change to commented default ?
