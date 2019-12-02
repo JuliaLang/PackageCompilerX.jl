@@ -8,13 +8,7 @@ using Libdl: Libdl
 using Pkg: Pkg
 using UUIDs: UUID
 
-export create_sysimage, create_app, audit_app
-
-if isdefined(Pkg, :Artifacts)
-    const SUPPORTS_ARTIFACTS = true
-else
-    const SUPPORTS_ARTIFACTS = false
-end
+export create_sysimage, create_app, audit_app, restore_default_sysimg
 
 include("juliaconfig.jl")
 
@@ -332,9 +326,7 @@ function create_app(package_dir::String,
     mkpath(app_dir)
 
     bundle_julia_libraries(app_dir)
-    if SUPPORTS_ARTIFACTS
-        bundle_artifacts(ctx, app_dir)
-    end
+    bundle_artifacts(ctx, app_dir)
 
     # TODO: Create in a temp dir and then move it into place?
     # TODO: Maybe avoid this cd?
