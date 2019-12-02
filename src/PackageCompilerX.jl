@@ -170,16 +170,21 @@ function gather_stdlibs_project(project::String)
     return stdlibs_project
 end
 
-function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
+"""
+    create_sysimage(packages
+
+## Keywords
+"""
+function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
                          project::String=active_project(),
                          precompile_execution_file::Union{String, Nothing}=nothing,
                          precompile_statements_file::Union{String, Nothing}=nothing,
                          incremental::Bool=true,
                          filter_stdlibs=false,
-                         replace_default_sysimg::Bool=false)
-    if sysimage_path === nothing && replace_default_sysimg == false
-        error("`sysimage_path` cannot be `nothing` if `replace_default_sysimg` is `false`")
+                         replace_defaut::Bool=false)
+    if sysimage_path === nothing && replace_defaut == false
+        error("`sysimage_path` cannot be `nothing` if `replace_defaut` is `false`")
     end
     if sysimage_path === nothing
         tmp = mktempdir()
@@ -208,7 +213,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}}=Symbol[];
                               precompile_execution_file=precompile_execution_file,
                               precompile_statements_file=precompile_statements_file)
     create_sysimg_from_object_file(object_file, sysimage_path)
-    if replace_default_sysimg
+    if replace_defaut
         if !isfile(backup_default_sysimg_path())
             @debug "making a backup of default sysimg"
             cp(default_sysimg_path(), backup_default_sysimg_path())

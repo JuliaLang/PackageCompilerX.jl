@@ -18,3 +18,12 @@ be done as a
 ## Standard library filtering
 
 As an example, 
+
+
+## What things are being leaked
+
+### Absolute paths of build machine
+
+### Lowered code
+
+### Name and fieldname of types
