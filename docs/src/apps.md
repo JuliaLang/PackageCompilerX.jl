@@ -15,6 +15,16 @@ be done as a
 
 
 
+
+
+
+### Incremental vs non-incremental sysimages
+
+By default, when creating a sysimage with PackageCompilerX, the sysimage is created in "incremental"-mode.
+This means that the 
+This has the benefit that 
+
+
 ## Standard library filtering
 
 As an example, 

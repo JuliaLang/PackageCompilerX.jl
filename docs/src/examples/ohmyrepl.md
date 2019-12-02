@@ -1,4 +1,4 @@
-# Creating a sysimage with OhMyREPL 
+# Creating a sysimage with OhMyREPL
 
 [OhMyREPL.jl](https://github.com/KristofferC/OhMyREPL.jl) is a package that enhances the REPL with, for example, syntax highlighting.
 It does, however, come with a bit of a startup time increase

@@ -94,8 +94,8 @@ end
 function create_sysimg_object_file(object_file::String, packages::Union{Symbol, Vector{Symbol}};
                             project::String,
                             base_sysimg::String,
-                            precompile_execution_file::Union{String, Nothing},
-                            precompile_statements_file::Union{String, Nothing})
+                            precompile_execution_file::Union{String, Vector{String}, Nothing},
+                            precompile_statements_file::Union{String, Vector{String}, Nothing})
     # include all packages into the sysimg
     packages = vcat(packages)
     julia_code = """
@@ -178,15 +178,16 @@ end
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
                          project::String=active_project(),
-                         precompile_execution_file::Union{String, Nothing}=nothing,
-                         precompile_statements_file::Union{String, Nothing}=nothing,
+                         precompile_execution_file::Union{String, Vector{String}, Nothing},
+                         precompile_statements_file::Union{String, Vector{String}, Nothing})
                          incremental::Bool=true,
                          filter_stdlibs=false,
                          replace_defaut::Bool=false)
-    if sysimage_path === nothing && replace_defaut == false
-        error("`sysimage_path` cannot be `nothing` if `replace_defaut` is `false`")
-    end
     if sysimage_path === nothing
+        if replace_defaut == false
+            error("`sysimage_path` cannot be `nothing` if `replace_defaut` is `false`")
+        end
+        # We will replace the default sysimage so just put it somewhere for now
         tmp = mktempdir()
         sysimage_path = joinpath(tmp, string("sys.", Libdl.dlext))
     end
@@ -296,8 +297,8 @@ end
 
 function create_app(package_dir::String,
                     app_dir::String;
-                    precompile_execution_file::Union{String,Nothing}=nothing,
-                    precompile_statements_file::Union{String,Nothing}=nothing,
+                    precompile_execution_file::Union{String, Nothing}=nothing,
+                    precompile_statements_file::Union{String, Nothing}=nothing,
                     incremental=false,
                     filter_stdlibs=false,
                     audit=true,
