@@ -13,6 +13,7 @@ using DocStringExtensions: SIGNATURES, TYPEDEF
 export create_sysimage, create_app, audit_app, restore_default_sysimg
 
 include("juliaconfig.jl")
+include("hacks.jl")
 
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
 function get_compiler()
@@ -104,14 +105,15 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
                             precompile_statements_file::Union{Vector{String}, Nothing})
     # include all packages into the sysimg
     julia_code = """
-        if !isdefined(Base, :uv_eventloop)
-            Base.reinit_stdio()
-        end
-        Base.__init__(); 
+        Base.reinit_stdio()
+        Base.init_depot_path()
+        Base.init_load_path()
         """
     for package in packages
         julia_code *= "using $package\n"
     end
+
+    julia_code *= ugly_workarounds(packages)
     
     # handle precompilation
     precompile_statements = ""
@@ -148,6 +150,8 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
                     @error "failed to execute \$statement"
                 end
             end
+        empty!(LOAD_PATH)
+        empty!(DEPOT_PATH)
         end # module
         """
     julia_code *= precompile_code
