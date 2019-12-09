@@ -14,6 +14,13 @@ export create_sysimage, create_app, audit_app, restore_default_sysimg
 
 include("juliaconfig.jl")
 
+const NATIVE_CPU_TARGET = "native"
+const APP_CPU_TARGET = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
+
+current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
+
+all_stdlibs() = readdir(Sys.STDLIB)
+
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
 function get_compiler()
     if Sys.iswindows()
@@ -28,18 +35,10 @@ function get_compiler()
     end
 end
 
-# TODO: Be able to set target for -C?
-# TODO: Change to commented default ?
-# const DEFAULT_TARGET = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
-const DEFAULT_TARGET = "generic"
-current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
-
 function get_julia_cmd()
     julia_path = joinpath(Sys.BINDIR, Base.julia_exename())
-    cmd = `$julia_path --color=yes --startup-file=no --cpu-target=$DEFAULT_TARGET`
+    cmd = `$julia_path --color=yes --startup-file=no`
 end
-
-all_stdlibs() = readdir(Sys.STDLIB)
 
 function rewrite_sysimg_jl_only_needed_stdlibs(stdlibs::Vector{String})
     sysimg_source_path = Base.find_source_file("sysimg.jl")
@@ -49,7 +48,7 @@ function rewrite_sysimg_jl_only_needed_stdlibs(stdlibs::Vector{String})
     return replace(sysimg_content, r"stdlibs = \[(.*?)\]"s => string("stdlibs = [", join(":" .* string.(stdlibs), ",\n"), "]"))
 end
 
-function create_fresh_base_sysimage(stdlibs::Vector{String})
+function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target::String)
     tmp = mktempdir(cleanup=false)
     sysimg_source_path = Base.find_source_file("sysimg.jl")
     base_dir = dirname(sysimg_source_path)
@@ -60,7 +59,8 @@ function create_fresh_base_sysimage(stdlibs::Vector{String})
     @info "PackageCompilerX: creating base system image (incremental=false), this might take a while..."
     cd(base_dir) do
         # Create corecompiler.ji
-        cmd = `$(get_julia_cmd()) --output-ji $tmp_corecompiler_ji -g0 -O0 $compiler_source_path`
+        cmd = `$(get_julia_cmd()) --cpu-target $cpu_target --output-ji $tmp_corecompiler_ji
+                                  -g0 -O0 $compiler_source_path`
         @debug "running $cmd"
         read(cmd)
 
@@ -69,7 +69,9 @@ function create_fresh_base_sysimage(stdlibs::Vector{String})
         new_sysimage_source_path = joinpath(base_dir, "sysimage_packagecompiler_x.jl")
         write(new_sysimage_source_path, new_sysimage_content)
         try
-            cmd = `$(get_julia_cmd()) --sysimage=$tmp_corecompiler_ji -g1 -O0 --output-ji=$tmp_sys_ji $new_sysimage_source_path`
+            cmd = `$(get_julia_cmd()) --cpu-target $cpu_target
+                                      --sysimage=$tmp_corecompiler_ji
+                                      -g1 -O0 --output-ji=$tmp_sys_ji $new_sysimage_source_path`
             @debug "running $cmd"
             read(cmd)
         finally
@@ -101,7 +103,8 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
                             project::String,
                             base_sysimg::String,
                             precompile_execution_file::Union{Vector{String}, Nothing},
-                            precompile_statements_file::Union{Vector{String}, Nothing})
+                            precompile_statements_file::Union{Vector{String}, Nothing},
+                            cpu_target::String)
     # include all packages into the sysimg
     julia_code = """
         if !isdefined(Base, :uv_eventloop)
@@ -156,7 +159,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @debug "creating object file at $object_file"
     @info "PackageCompilerX: creating system image object file, this might take a while..."
 
-    cmd = `$(get_julia_cmd()) --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
+    cmd = `$(get_julia_cmd()) --cpu-target=$cpu_target --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
     @debug "running $cmd"
     run(cmd)
 end
@@ -191,7 +194,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          precompile_statements_file::Union{String, Vector{String}, Nothing}=nothing,
                          incremental::Bool=true,
                          filter_stdlibs=false,
-                         replace_default::Bool=false)
+                         replace_default::Bool=false,
+                         cpu_target::String=NATIVE_CPU_TARGET)
     if sysimage_path === nothing
         if replace_default == false
             error("`sysimage_path` cannot be `nothing` if `replace_default` is `false`")
@@ -216,7 +220,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
         else
             stdlibs= all_stdlibs()
         end
-        base_sysimg = create_fresh_base_sysimage(stdlibs)
+        base_sysimg = create_fresh_base_sysimage(stdlibs; cpu_target=cpu_target)
     else
         base_sysimg = current_process_sysimage_path()
     end
@@ -226,7 +230,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                               project=project,
                               base_sysimg=base_sysimg,
                               precompile_execution_file=precompile_execution_file,
-                              precompile_statements_file=precompile_statements_file)
+                              precompile_statements_file=precompile_statements_file,
+                              cpu_target=cpu_target)
     create_sysimg_from_object_file(object_file, sysimage_path)
     if replace_default
         if !isfile(backup_default_sysimg_path())
@@ -362,8 +367,9 @@ function create_app(package_dir::String,
     cd(binpath) do
                 create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
                                 incremental=incremental, filter_stdlibs=filter_stdlibs,
-                                precompile_execution_file = precompile_execution_file,
-                                precompile_statements_file = precompile_statements_file)
+                                precompile_execution_file=precompile_execution_file,
+                                precompile_statements_file=precompile_statements_file,
+                                cpu_target=APP_CPU_TARGET)
         create_executable_from_sysimg(; sysimage_path=sysimg_file, executable_path=app_name)
         if Sys.isapple()
             cmd = `install_name_tool -change $sysimg_file @rpath/$sysimg_file $app_name`
