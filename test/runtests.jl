@@ -5,8 +5,8 @@ using Libdl
 ENV["JULIA_DEBUG"] = "PackageCompilerX"
 
 @testset "PackageCompilerX.jl" begin
-    #=
     tmp = mktempdir()
+    #=
     sysimage_path = joinpath(tmp, "sys." * Libdl.dlext)
     create_sysimage(:Example; sysimage_path=sysimage_path,
                               precompile_execution_file="precompile_execution.jl",

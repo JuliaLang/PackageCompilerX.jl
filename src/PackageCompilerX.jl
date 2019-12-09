@@ -113,7 +113,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
         julia_code *= "using $package\n"
     end
 
-    julia_code *= ugly_workarounds(packages)
+    julia_code *= ugly_workarounds()
     
     # handle precompilation
     precompile_statements = ""
