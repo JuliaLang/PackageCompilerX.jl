@@ -1,9 +1,4 @@
----
-layout: post
-title: Custom system images and apps in Julia -- The manual way -- Part 2
-author: <a href="https://github.com/KristofferC">Kristoffer Carlsson</a>
----
-
+# Creating binaries from 
 This is part 2 in a series of blog posts related to creating custom sysimages
 and executables (apps) that can be shipped to other machines in Julia. Part 1
 focused on how to build a local system image to reduce package load times and

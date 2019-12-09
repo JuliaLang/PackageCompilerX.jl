@@ -1,0 +1,23 @@
+# Introduction
+
+This part of the documentation contains a set of tutorial to teach how
+PackageCompilerX works internally. By knowing the internals of
+PackageCompilerX you can more easily figure out root causes of problems and 
+
+The inner functionality of PackageCompilerX is actually quite simple.
+There are a few julia commands and compiler invocations that everything
+is built around, the rest is just scaffolding.
+
+Part 1 focuses on how to build a local system image to reduce package load
+times and reduce the latency that can occur when calling a function for the
+first time.  Part 2 targets how to build an executable
+based on the custom sysimage so that it can be run without having to explicitly
+start a Julia session.  Part 3 (yet to be written) details how to bundle that
+executable together with the Julia libraries and other files needed so that the
+bundle can be sent to and run on a different system where Julia might not be
+installed.
+
+It should be noted that there is some usage of  non-documented Julia functions
+and flags.  They have not been changed for quite a long time (and are unlikely
+to change too much in the future) but some care should be taken.
+

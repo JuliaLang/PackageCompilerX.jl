@@ -1,30 +1,4 @@
-This is part 1 in a series of blog posts related to creating custom sysimages
-and executables (apps) that can be shipped to other machines in Julia. Part 1
-focuses on how to build a local system image to reduce package load times and
-reduce latency when calling a function for the first time.  Part 2 (yet to be
-written) targets how to build an executable based on the custom sysimage so
-that it can be run without having to explicitly start a Julia session.  Part 3
-(yet to be written) details how to bundle that executable together with the
-Julia libraries and other files needed so that the bundle can be sent to and
-run on a different system where Julia might not be installed.
-
-The goto package for creating sysimages and executable is at the time of
-writing [PackageCompiler.jl][PackageCompiler-url]. Unfortunately, the package
-is now [arguably unmaintained][PackageCompiler-youtube-url] with the latest
-work being on a separate branch, and naturally, issues are piling up.  We at
-Julia Computing have noticed an increasing desire in being able to create and
-deploy applications so we want to support that use-case to the best of our
-ability. This support will take the form of either maintaining
-PackageCompiler.jl or (perhaps more likely) creating and maintaining
-replacement. This will, however, take a while to do so in the meantime, these
-set of blog posts are intended to document the manual process by which one can
-achieve the same end result. A package like `PackageCompiler.jl` is then a
-quite thin wrapper around the techniques described here.
-
-It should be noted that this blog post contains usage of some non-public
-functions and flags.  They have not been changed for quite a long time but some
-care should be taken.
-
+# Creating a sysimage
 
 ## Julia's compilation model and sysimages
 
@@ -43,7 +17,6 @@ When Julia starts, this sysimage gets loaded, which is a quite quick process
 (50ms on the author's machine), and all the cached compiled code can
 immediately be used, without requiring any compilation.
 
-
 ## Custom sysimages
 
 There are cases where one wants to generate a custom sysimage for a similar
@@ -60,7 +33,7 @@ might be preferable, for example, using [Revise.jl][Revise-url]
 ## Example workload
 
 To have something concrete to work with, let's assume we have a small script
-that needs to read a CSV-file and perhasp compute some statistics on it.  As an
+that reads a CSV-file and perhasp compute some statistics on it.  As an
 example, we will use a sample CSV file containing Florida insurance data, which
 can be downloaded [from here][florida-csv-url].
 
@@ -484,9 +457,6 @@ julia> @time CSV.read("FL_insurance_sample.csv");
 ```
 
 And finally, our first time for parsing the CSV-file is close to the second time.
-
-Stay tuned for part 2 which shows how to create an executable that can be run without having
-to start a Julia session.
 
 [shared-library-url]: https://en.wikipedia.org/wiki/Library_(computing)#Shared_libraries
 [PackageCompiler-url]: https://github.com/JuliaLang/PackageCompiler.jl
