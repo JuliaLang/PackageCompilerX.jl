@@ -15,7 +15,9 @@ function ugly_workarounds(packages::Vector{Symbol})
             end
         end
         """
+        @show hack_code
     end
+
 
     return hack_code
 end

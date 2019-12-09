@@ -161,7 +161,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @info "PackageCompilerX: creating system image object file, this might take a while..."
 
     cmd = `$(get_julia_cmd()) --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
-    @debug "running $cmd"
+    @info "running $cmd"
     run(cmd)
 end
 

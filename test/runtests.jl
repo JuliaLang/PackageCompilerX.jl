@@ -5,6 +5,7 @@ using Libdl
 ENV["JULIA_DEBUG"] = "PackageCompilerX"
 
 @testset "PackageCompilerX.jl" begin
+    #=
     tmp = mktempdir()
     sysimage_path = joinpath(tmp, "sys." * Libdl.dlext)
     create_sysimage(:Example; sysimage_path=sysimage_path,
@@ -38,6 +39,7 @@ ENV["JULIA_DEBUG"] = "PackageCompilerX"
             @test occursin("ἔοικα γοῦν τούτου", app_output)
         end
     end
+    =#
 
     # Test that Plots.jl works in a sysimage
     plots_sysimage_path = joinpath(tmp, "Plots." * Libdl.dlext)
