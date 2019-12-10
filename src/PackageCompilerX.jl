@@ -94,6 +94,9 @@ function run_precompilation_script(project::String, precompile_file::Union{Strin
             --compile=all --trace-compile=$tracefile $arg`
     @debug "run_precompilation_script: running $cmd"
     run(cmd)
+    s = read(tracefile, String)
+    @info "PRECOMPILE STATEMENTS!!!!!!!!!!!!!!!"
+    println(s)
     return tracefile
 end
 
