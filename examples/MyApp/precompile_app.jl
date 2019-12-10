@@ -1,4 +1,4 @@
 using MyApp
 
 push!(ARGS, "arg")
-MyApp.julia_main()
+MyApp.real_main()
