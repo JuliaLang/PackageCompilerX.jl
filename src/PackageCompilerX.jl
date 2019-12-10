@@ -56,7 +56,7 @@ function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target::String)
     tmp_sys_ji = joinpath(tmp, "sys.ji")
     compiler_source_path = joinpath(base_dir, "compiler", "compiler.jl")
 
-    @info "PackageCompilerX: creating base system image (incremental=false), this might take a while..."
+    @info "PackageCompilerX: creating base system image (incremental=false)..."
     cd(base_dir) do
         # Create corecompiler.ji
         cmd = `$(get_julia_cmd()) --cpu-target $cpu_target --output-ji $tmp_corecompiler_ji
@@ -95,13 +95,13 @@ function run_precompilation_script(project::String, precompile_file::Union{Strin
     cmd = `$(get_julia_cmd()) --sysimage=$(current_process_sysimage_path()) --project=$project
             --compile=all --trace-compile=$tracefile $arg`
     @debug "run_precompilation_script: running $cmd"
-    run(cmd)
+    read(cmd)
     return tracefile
 end
 
 function create_sysimg_object_file(object_file::String, packages::Vector{Symbol};
                             project::String,
-                            base_sysimg::String,
+                            base_sysimage::String,
                             precompile_execution_file::Union{Vector{String}, Nothing},
                             precompile_statements_file::Union{Vector{String}, Nothing},
                             cpu_target::String)
@@ -159,7 +159,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @debug "creating object file at $object_file"
     @info "PackageCompilerX: creating system image object file, this might take a while..."
 
-    cmd = `$(get_julia_cmd()) --cpu-target=$cpu_target --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
+    cmd = `$(get_julia_cmd()) --cpu-target=$cpu_target --sysimage=$base_sysimage --project=$project --output-o=$(object_file) -e $julia_code`
     @debug "running $cmd"
     run(cmd)
 end
@@ -195,7 +195,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          incremental::Bool=true,
                          filter_stdlibs=false,
                          replace_default::Bool=false,
-                         cpu_target::String=NATIVE_CPU_TARGET)
+                         cpu_target::String=NATIVE_CPU_TARGET,
+                         base_sysimage::Union{Nothing, String}=nothing)
     if sysimage_path === nothing
         if replace_default == false
             error("`sysimage_path` cannot be `nothing` if `replace_default` is `false`")
@@ -215,20 +216,25 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     precompile_statements_file !== nothing && (precompile_statements = vcat(precompile_statements_file))
 
     if !incremental
+        if base_sysimage !== nothing
+            error("cannot specify `base_sysimage`  when `incremental=false`")
+        end
         if filter_stdlibs
             stdlibs = gather_stdlibs_project(project)
         else
             stdlibs= all_stdlibs()
         end
-        base_sysimg = create_fresh_base_sysimage(stdlibs; cpu_target=cpu_target)
+        base_sysimage = create_fresh_base_sysimage(stdlibs; cpu_target=cpu_target)
     else
-        base_sysimg = current_process_sysimage_path()
+        if base_sysimage == nothing
+            base_sysimage = current_process_sysimage_path()
+        end
     end
 
     object_file = tempname() * ".o"
     create_sysimg_object_file(object_file, packages;
                               project=project,
-                              base_sysimg=base_sysimg,
+                              base_sysimage=base_sysimage,
                               precompile_execution_file=precompile_execution_file,
                               precompile_statements_file=precompile_statements_file,
                               cpu_target=cpu_target)
@@ -365,11 +371,32 @@ function create_app(package_dir::String,
     binpath = joinpath(app_dir, "bin")
     mkpath(binpath)
     cd(binpath) do
-                create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
-                                incremental=incremental, filter_stdlibs=filter_stdlibs,
-                                precompile_execution_file=precompile_execution_file,
-                                precompile_statements_file=precompile_statements_file,
-                                cpu_target=APP_CPU_TARGET)
+        if !incremental
+            tmp = mktempdir()
+            # Use workaround at https://github.com/JuliaLang/julia/issues/34064#issuecomment-563950633
+            # by first creating a normal "empty" sysimage and then use that to finally create the one
+            # with the @ccallable function
+            @info "first sysimage"
+            tmp_base_sysimage = joinpath(tmp, "tmp_sys.so")
+            create_sysimage(Symbol[]; sysimage_path=tmp_base_sysimage, project=project_path, 
+                            incremental=false, filter_stdlibs=filter_stdlibs,
+                            cpu_target=APP_CPU_TARGET)
+
+            @info "second sysimage"
+            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
+                            incremental=true,
+                            precompile_execution_file=precompile_execution_file,
+                            precompile_statements_file=precompile_statements_file,
+                            cpu_target=APP_CPU_TARGET,
+                            base_sysimage=tmp_base_sysimage)
+        else
+            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path,
+                                              incremental=incremental, filter_stdlibs=filter_stdlibs,
+                                              precompile_execution_file=precompile_execution_file,
+                                              precompile_statements_file=precompile_statements_file,
+                                              cpu_target=APP_CPU_TARGET)
+        end
+
         create_executable_from_sysimg(; sysimage_path=sysimg_file, executable_path=app_name)
         if Sys.isapple()
             cmd = `install_name_tool -change $sysimg_file @rpath/$sysimg_file $app_name`
