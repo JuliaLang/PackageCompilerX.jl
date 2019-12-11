@@ -1,6 +1,5 @@
 module PackageCompilerX
 
-
 # TODO: Add good debugging statements
 # TODO: sysimage or sysimg...
 
@@ -23,20 +22,18 @@ all_stdlibs() = readdir(Sys.STDLIB)
 
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
 function get_compiler()
-    if Sys.iswindows()
-        if Sys.which("gcc") !== nothing
-            return `gcc`
-        elseif Sys.which("x86_64-w64-mingw32-gcc") !== nothing
-            return `x86_64-w64-mingw32-gcc`
-        end
-    else
-        if Sys.which("gcc") !== nothing
-            return `gcc`
-        elseif Sys.which("clang") !== nothing
-            return `clang`
-        end
-        error("could not find a compiler, looked for `gcc` and `clang`")
+    cc = get(ENV, "JULIA_CC", nothing)
+    if cc !== nothing
+        return cc
     end
+    if Sys.which("x86_64-w64-mingw32-gcc") !== nothing
+        return `x86_64-w64-mingw32-gcc`
+    elseif Sys.which("gcc") !== nothing
+        return `gcc`
+    elseif Sys.which("clang") !== nothing
+        return `clang`
+    end
+    error("could not find a compiler, looked for `gcc` and `clang`")
 end
 
 function get_julia_cmd()
@@ -189,7 +186,7 @@ function gather_stdlibs_project(project::String)
 end
 
 """
-    $SIGNATURES
+    SIGNATURES
 """
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
