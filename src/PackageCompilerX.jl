@@ -28,15 +28,14 @@ function get_compiler()
     end
 end
 
-# TODO: Be able to set target for -C?
 # TODO: Change to commented default ?
 # const DEFAULT_TARGET = "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)"
 const DEFAULT_TARGET = "generic"
 current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
 
-function get_julia_cmd()
+function get_julia_cmd(; cpu_target=DEFAULT_TARGET)
     julia_path = joinpath(Sys.BINDIR, Base.julia_exename())
-    cmd = `$julia_path --color=yes --startup-file=no --cpu-target=$DEFAULT_TARGET`
+    cmd = `$julia_path --color=yes --startup-file=no --cpu-target=$cpu_target`
 end
 
 all_stdlibs() = readdir(Sys.STDLIB)
@@ -49,7 +48,7 @@ function rewrite_sysimg_jl_only_needed_stdlibs(stdlibs::Vector{String})
     return replace(sysimg_content, r"stdlibs = \[(.*?)\]"s => string("stdlibs = [", join(":" .* string.(stdlibs), ",\n"), "]"))
 end
 
-function create_fresh_base_sysimage(stdlibs::Vector{String})
+function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target=DEFAULT_TARGET)
     tmp = mktempdir(cleanup=false)
     sysimg_source_path = Base.find_source_file("sysimg.jl")
     base_dir = dirname(sysimg_source_path)
@@ -60,7 +59,7 @@ function create_fresh_base_sysimage(stdlibs::Vector{String})
     @info "PackageCompilerX: creating base system image (incremental=false), this might take a while..."
     cd(base_dir) do
         # Create corecompiler.ji
-        cmd = `$(get_julia_cmd()) --output-ji $tmp_corecompiler_ji -g0 -O0 $compiler_source_path`
+        cmd = `$(get_julia_cmd(; cpu_target=cpu_target)) --output-ji $tmp_corecompiler_ji -g0 -O0 $compiler_source_path`
         @debug "running $cmd"
         read(cmd)
 
@@ -69,7 +68,7 @@ function create_fresh_base_sysimage(stdlibs::Vector{String})
         new_sysimage_source_path = joinpath(base_dir, "sysimage_packagecompiler_x.jl")
         write(new_sysimage_source_path, new_sysimage_content)
         try
-            cmd = `$(get_julia_cmd()) --sysimage=$tmp_corecompiler_ji -g1 -O0 --output-ji=$tmp_sys_ji $new_sysimage_source_path`
+            cmd = `$(get_julia_cmd(; cpu_target=cpu_target)) --sysimage=$tmp_corecompiler_ji -g1 -O0 --output-ji=$tmp_sys_ji $new_sysimage_source_path`
             @debug "running $cmd"
             read(cmd)
         finally
@@ -81,7 +80,7 @@ function create_fresh_base_sysimage(stdlibs::Vector{String})
 end
 
 # TODO: Add output file?
-function run_precompilation_script(project::String, precompile_file::Union{String, Nothing})
+function run_precompilation_script(project::String, precompile_file::Union{String, Nothing}; cpu_target=DEFAULT_TARGET)
     # TODO: Audit tempname usage
     tracefile = tempname()
     if precompile_file == nothing
@@ -90,7 +89,7 @@ function run_precompilation_script(project::String, precompile_file::Union{Strin
         arg = `$precompile_file`
     end
     touch(tracefile)
-    cmd = `$(get_julia_cmd()) --sysimage=$(current_process_sysimage_path()) --project=$project
+    cmd = `$(get_julia_cmd(; cpu_target=cpu_target)) --sysimage=$(current_process_sysimage_path()) --project=$project
             --compile=all --trace-compile=$tracefile $arg`
     @debug "run_precompilation_script: running $cmd"
     run(cmd)
@@ -101,7 +100,8 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
                             project::String,
                             base_sysimg::String,
                             precompile_execution_file::Union{Vector{String}, Nothing},
-                            precompile_statements_file::Union{Vector{String}, Nothing})
+                            precompile_statements_file::Union{Vector{String}, Nothing},
+                            cpu_target=DEFAULT_TARGET)
     # include all packages into the sysimg
     julia_code = """
         if !isdefined(Base, :uv_eventloop)
@@ -118,7 +118,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @debug "running precompilation execution script..."
     tracefiles = String[]
     for file in (precompile_execution_file === nothing ? (nothing,) : precompile_execution_file)
-        tracefile = run_precompilation_script(project, file)
+        tracefile = run_precompilation_script(project, file; cpu_target=cpu_target)
         precompile_statements *= "append!(precompile_statements, readlines($(repr(tracefile))))\n"
     end
     if precompile_statements_file != nothing
@@ -156,7 +156,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @debug "creating object file at $object_file"
     @info "PackageCompilerX: creating system image object file, this might take a while..."
 
-    cmd = `$(get_julia_cmd()) --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
+    cmd = `$(get_julia_cmd(; cpu_target=cpu_target)) --sysimage=$base_sysimg --project=$project --output-o=$(object_file) -e $julia_code`
     @debug "running $cmd"
     run(cmd)
 end
@@ -191,7 +191,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          precompile_statements_file::Union{String, Vector{String}, Nothing}=nothing,
                          incremental::Bool=true,
                          filter_stdlibs=false,
-                         replace_default::Bool=false)
+                         replace_default::Bool=false,
+                         cpu_target=DEFAULT_TARGE)
     if sysimage_path === nothing
         if replace_default == false
             error("`sysimage_path` cannot be `nothing` if `replace_default` is `false`")
@@ -226,7 +227,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                               project=project,
                               base_sysimg=base_sysimg,
                               precompile_execution_file=precompile_execution_file,
-                              precompile_statements_file=precompile_statements_file)
+                              precompile_statements_file=precompile_statements_file,
+                              cpu_target=cpu_target)
     create_sysimg_from_object_file(object_file, sysimage_path)
     if replace_default
         if !isfile(backup_default_sysimg_path())
