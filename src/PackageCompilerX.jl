@@ -376,14 +376,12 @@ function create_app(package_dir::String,
             # Use workaround at https://github.com/JuliaLang/julia/issues/34064#issuecomment-563950633
             # by first creating a normal "empty" sysimage and then use that to finally create the one
             # with the @ccallable function
-            @info "first sysimage"
             tmp_base_sysimage = joinpath(tmp, "tmp_sys.so")
-            create_sysimage(Symbol[]; sysimage_path=tmp_base_sysimage, project=project_path, 
+            create_sysimage(Symbol[]; sysimage_path=tmp_base_sysimage, project=project_path,
                             incremental=false, filter_stdlibs=filter_stdlibs,
                             cpu_target=APP_CPU_TARGET)
 
-            @info "second sysimage"
-            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path, 
+            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path,
                             incremental=true,
                             precompile_execution_file=precompile_execution_file,
                             precompile_statements_file=precompile_statements_file,

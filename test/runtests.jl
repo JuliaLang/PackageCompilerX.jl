@@ -26,8 +26,7 @@ ENV["JULIA_DEBUG"] = "PackageCompilerX"
             filter_stdlibs = (false,)
         end
         for filter in filter_stdlibs
-            create_app(app_source_dir, app_exe_dir; incremental=incremental, force=true, filter_stdlibs=filter,
-                                       precompile_execution_file=joinpath(app_source_dir, "precompile_app.jl"))
+            create_app(app_source_dir, app_exe_dir; incremental=incremental, force=true, filter_stdlibs=filter)
             app_path = abspath(app_exe_dir, "bin", "MyApp" * (Sys.iswindows() ? ".exe" : ""))
             app_output = read(`$app_path`, String)
             if filter == true
