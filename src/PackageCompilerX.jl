@@ -474,7 +474,6 @@ function bundle_artifacts(ctx, app_dir)
 
     # Copy the artifacts needed to the app directory
     artifact_app_path = joinpath(app_dir, "artifacts")
-    println(artifact_app_path)
     if !isempty(artifact_paths)
         mkpath(artifact_app_path)
     end
