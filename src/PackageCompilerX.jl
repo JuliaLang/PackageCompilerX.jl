@@ -24,7 +24,11 @@ all_stdlibs() = readdir(Sys.STDLIB)
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
 function get_compiler()
     if Sys.iswindows()
-        return `x86_64-w64-mingw32-gcc`
+        if Sys.which("gcc") !== nothing
+            return `gcc`
+        elseif Sys.which("x86_64-w64-mingw32-gcc") !== nothing
+            return `x86_64-w64-mingw32-gcc`
+        end
     else
         if Sys.which("gcc") !== nothing
             return `gcc`
@@ -469,6 +473,7 @@ function bundle_artifacts(ctx, app_dir)
 
     # Copy the artifacts needed to the app directory
     artifact_app_path = joinpath(app_dir, "artifacts")
+    println(artifact_app_path)
     if !isempty(artifact_paths)
         mkpath(artifact_app_path)
     end
