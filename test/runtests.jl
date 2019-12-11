@@ -43,7 +43,7 @@ ENV["JULIA_DEBUG"] = "PackageCompilerX"
             # Check artifact runs
             @test occursin("The result of 2*5^2 - 10 == 40.000000", app_output)
             # Check artifact gets run from the correct place
-            @test occursin("HelloWorld artifact at $(app_compiled_dir)", app_output)
+            @test occursin("HelloWorld artifact at $(realpath(app_compiled_dir))", app_output)
         end
     end
 end

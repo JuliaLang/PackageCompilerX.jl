@@ -30,7 +30,7 @@ function real_main()
 
     println("Running a jll package:")
     HelloWorldC_jll.hello_world() do x
-        println("HelloWorld artifact at $x")
+        println("HelloWorld artifact at $(realpath(x))")
         run(`$x`)
     end
     println()
