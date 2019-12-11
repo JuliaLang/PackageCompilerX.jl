@@ -35,7 +35,8 @@ ENV["JULIA_DEBUG"] = "PackageCompilerX"
                 @test occursin("LinearAlgebra", app_output)
             end
             @test occursin("Example.domath", app_output)
-            @test occursin("40.000000", app_output)
+            @test occursin("Hello, World!", app_output)
+            @test occursin("The result of 2*5^2 - 10 == 40.000000", app_output)
         end
     end
 end

@@ -340,6 +340,7 @@ function create_app(package_dir::String,
                     filter_stdlibs=false,
                     audit=true,
                     force=false)
+    # Need to check if nothing was returned below
     project_toml_path = abspath(Pkg.Types.projectfile_path(package_dir; strict=true))
     manifest_toml_path = abspath(Pkg.Types.manifestfile_path(package_dir))
     if manifest_toml_path === nothing
