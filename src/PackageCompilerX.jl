@@ -26,7 +26,11 @@ yesno(b::Bool) = b ? "yes" : "no"
 # TODO: Check more carefully how to just use mingw on windows without using cygwin.
 function get_compiler()
     if Sys.iswindows()
-        return `x86_64-w64-mingw32-gcc`
+        if Sys.which("gcc") !== nothing
+            return `gcc`
+        elseif Sys.which("x86_64-w64-mingw32-gcc") !== nothing
+            return `x86_64-w64-mingw32-gcc`
+        end
     else
         if Sys.which("gcc") !== nothing
             return `gcc`
@@ -342,6 +346,7 @@ function create_app(package_dir::String,
                     filter_stdlibs=false,
                     audit=true,
                     force=false)
+    # Need to check if nothing was returned below
     project_toml_path = abspath(Pkg.Types.projectfile_path(package_dir; strict=true))
     manifest_toml_path = abspath(Pkg.Types.manifestfile_path(package_dir))
     if manifest_toml_path === nothing
