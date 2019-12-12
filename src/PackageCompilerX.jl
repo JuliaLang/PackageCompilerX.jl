@@ -21,6 +21,8 @@ current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
 all_stdlibs() = readdir(Sys.STDLIB)
 
 yesno(b::Bool) = b ? "yes" : "no"
+#TODO: Check if this is optimal
+march() = Int == Int32 ? "-march=pentium4" : ""
 
 function get_compiler()
     cc = get(ENV, "JULIA_CC", nothing)
@@ -165,7 +167,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{Symbol}
     @debug "creating object file at $object_file"
     @info "PackageCompilerX: creating system image object file, this might take a while..."
 
-    cmd = `$(get_julia_cmd()) --compiled-modules=$(yesno(compiled_modules)) --cpu-target=$cpu_target
+    cmd = `$(get_julia_cmd()) --compiled-modules=$(yesno(compiled_modules)) --cpu-target $cpu_target
                               --sysimage=$base_sysimage --project=$project --output-o=$(object_file) -e $julia_code`
     @debug "running $cmd"
     run(cmd)
@@ -271,7 +273,7 @@ function create_sysimg_from_object_file(input_object::String, sysimage_path::Str
     end
     extra = Sys.iswindows() ? `-Wl,--export-all-symbols` : ``
     bitflag = Int == Int32 ? "-m32" : "-m64"
-    run(`$(get_compiler()) -shared -L$(julia_libdir) -o $sysimage_path $o_file -ljulia $bitflag $extra`)
+    run(`$(get_compiler()) -shared $(march()) -L$(julia_libdir) -o $sysimage_path $o_file -ljulia $bitflag $extra`)
     return nothing
 end
 
@@ -433,7 +435,7 @@ function create_executable_from_sysimg(;sysimage_path::String,
         rpath = `-Wl,-rpath,\$ORIGIN:\$ORIGIN/../lib`
     end
     bitflag = Int == Int32 ? "-m32" : "-m64"
-    cmd = `$(get_compiler()) -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $bitflag $rpath $flags`
+    cmd = `$(get_compiler()) -DJULIAC_PROGRAM_LIBNAME=$(repr(sysimage_path)) $(march()) -o $(executable_path) $(wrapper) $(sysimage_path) -O2 $bitflag $rpath $flags`
     @debug "running $cmd"
     run(cmd)
     return nothing
