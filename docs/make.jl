@@ -20,6 +20,7 @@ makedocs(
         ],
 
         "PackageCompilerX - the manual way" => [
+            "devdocs/intro.md",
             "devdocs/sysimages_part_1.md",
             "devdocs/binaries_part_2.md",
             "devdocs/relocatable_part_3.md",

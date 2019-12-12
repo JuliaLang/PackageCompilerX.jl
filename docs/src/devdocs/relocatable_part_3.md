@@ -1,4 +1,4 @@
-# Relocatable apps
+# [Relocatable apps](@id man-tutorial-reloc)
 
 In the previous tutorials, we created a custom sysimage and a binary (app) that
 did some simple CSV parsing with an (depending on the exact demands) acceptable

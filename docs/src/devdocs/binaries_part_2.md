@@ -1,4 +1,4 @@
-# Creating a binary from Julia code
+# [Creating a binary from Julia code](@id man-tutorial-binary)
 
 This section targets how to build an executable based on the custom sysimage so
 that it can be run without having to explicitly start a Julia session. 
