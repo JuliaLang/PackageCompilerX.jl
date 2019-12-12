@@ -186,7 +186,9 @@ end
 """
     create_sysimage(packages::Union{Symbol, Vector{Symbol}}; kwargs...)
 
-Create a system image that includes the package(s) in `packages`.
+Create a system image that includes the package(s) in `packages`.  An attempt
+to automatically find a compiler will be done but can also be given explicitly
+by setting the envirnment variable `JULIA_CC` to a path to a compiler
 
 ### Keyword arguments:
 
@@ -375,6 +377,10 @@ end
 
 The executable will be placed in a folder called `bin` in `compiled_app` and
 when the executabl run the `julia_main` function is called.
+
+An attempt to automatically find a compiler will be done but can also be given
+explicitly by setting the envirnment variable `JULIA_CC` to a path to a
+compiler.
 
 ### Keyword arguments:
 
