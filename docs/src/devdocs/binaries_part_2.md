@@ -1,40 +1,34 @@
-# Creating binaries from 
-This is part 2 in a series of blog posts related to creating custom sysimages
-and executables (apps) that can be shipped to other machines in Julia. Part 1
-focused on how to build a local system image to reduce package load times and
-reduce latency when calling a function for the first time. This part (part 2)
-targets how to build an executable based on the custom sysimage so that it can
-be run without having to explicitly start a Julia session.  Part 3 (yet to be
-written) details how to bundle that executable together with the Julia
-libraries and other files needed so that the bundle can be sent to and run on a
-different system where Julia might not be installed.  Most things that were
-described in part 1 will be used here, so make sure to read that first!
+# Creating a binary from Julia code
 
-## Interacting with Julia
+This section targets how to build an executable based on the custom sysimage so
+that it can be run without having to explicitly start a Julia session. 
+
+## Interacting with Julia through `libjulia`.
 
 The way to interact with Julia without using the Julia executable itself is by
 calling into the Julia runtime library (`libjulia`) from a C program.  A quite
 detail set of docs for how this is done can be found at the [embedding chapter
-in the Julia manual][embedding-url] and it is recommended to read before
-reading on.  Since this is "the manual way" we will not use the conveniences
-shown in that section (e.g. the `julia-config.jl` script) but it is good to
-know they exist.
+in the Julia manual](https://docs.julialang.org/en/v1/manual/embedding/) and it
+is recommended to read before reading on.  Since this is supposed to highlight
+the interals of PackageCompilerX, will not use the conveniences shown in that
+section (e.g. the `julia-config.jl` script) but it is good to know they exist.
 
 A rough outline of the steps we will take to create an executable are:
 
 - Create our Julia app with a `Base.@ccallable` entry-point which means the Julia
-  function can be called from C.
+  function can be called directly from C.
 - Create a custom sysimage to reduce latency (this is pretty much just doing
-  part 1) and to hold the c-callable function from the first step.
+  part 1) and to hold the C-callable function from the first step.
 - Write an embedding wrapper in C that loads our custom sysimage, does some
   initialization and calls the entry point in the script.
 
-## Creating the app -- A toy application
+## A toy application
 
 To have something concrete to work with we will create a very simple
-application.  In keeping with the spirit of CSV parsing from part 1, we will create
-a small app that parses a list of CSV files given as arguments to the app and
-prints the size of the parsed result. The code for the app (`MyApp.jl`) is shown below:
+application.  Keeping with the spirit of CSV parsing, we will create a small
+app that parses a list of CSV files given as arguments to the app and prints
+the size of the parsed result. The code for the app (`MyApp.jl`) is shown
+below:
 
 ```jl
 module MyApp
@@ -75,9 +69,10 @@ does the actual work.  All the code that is executed is put inside a try-catch
 block since the error will otherwise happen in the C-code where the backtrace
 is not very good
 
-To facilitate testing, we [check if the file was directly executed][check-execute-url] and
-in that case, run the main function.
-We can test (and time) the script on the sample CSV file from part 1:
+To facilitate testing, we [check if the file was directly
+executed](https://docs.julialang.org/en/v1/manual/faq/#How-do-I-check-if-the-current-file-is-being-run-as-the-main-script?-1)
+and in that case, run the main function.  We can test (and time) the script on
+the sample CSV file [from the first tutorial](@ref man-tutorial-sysimage)
 
 ```
 ❯ time julia MyApp.jl FL_insurance_sample.csv
@@ -87,15 +82,17 @@ julia MyApp.jl FL_insurance_sample.csv  12.51s user 0.38s system 104% cpu 12.385
 
 ## Create the sysimage
 
-As in part 1, we do a "sample run" of our app to record what functions end up getting compiled.
-Here, we simply run the app on the sample CSV file since that should give good "coverage":
+As in the previous tutorial, we do a "sample run" of our app to record what
+functions end up getting compiled.  Here, we simply run the app on the sample
+CSV file since that should give good "coverage":
 
 ```jl
 julia --startup-file=no --trace-compile=app_precompile.jl MyApp.jl "FL_insurance_sample.csv"
 ```
 
-The `create_sysimage.jl` script look similar to part 1 except we added an include of the app file
-inside the anonymous module where the precompiliation statements are evaluated in:
+The `create_sysimage.jl` script look similar to before with the exception that
+we added an include of the app file inside the anonymous module where the
+precompiliation statements are evaluated in:
 
 ```jl
 Base.init_depot_path()
@@ -122,7 +119,7 @@ empty!(LOAD_PATH)
 empty!(DEPOT_PATH)
 ```
 
-The sysimage is then created as in part 1:
+The sysimage is then created as before:
 
 ```
 ❯ julia --startup-file=no -J"/home/kc/julia/lib/julia/sys.so" --output-o sys.o custom_sysimage.jl
@@ -231,7 +228,6 @@ Stacktrace:
 
 On macOS, instead of `$ORIGIN` for the `rpath`, use `@executable_path`.
 
-
 ### Windows considerations
 
 On Windows, it is recommended to increase the size of the stack from the
@@ -240,19 +236,4 @@ flag.  Windows doesn't have (at least in an as simple way as Linux and macOS)
 the concept of `rpath`.  The goto solution is to either set the `PATH`
 environment variable to the Julia `bin` folder or alternatively copy paste all
 the libraries in the Julia `bin` folder so they sit next to the executable.
-
-
-# Summary
-
-This blogpost took us from knowing how to create a sysimage to how to create an
-executable calling into the julia runtime and starting up an "app" for us.
-Note that the binary produced here is not at all relocatable (trying to send it
-to a different machine will not work). In the next part (part 3) of this blog
-we will look at what modifications we need to do to the embedding script, what
-files we need to bundle, and what requirements packages need to adhere to in
-order to be relocatable
-
-[embedding-url]: https://docs.julialang.org/en/v1/manual/embedding/
-[check-execute-url]: https://docs.julialang.org/en/v1/manual/faq/#How-do-I-check-if-the-current-file-is-being-run-as-the-main-script?-1
-
 

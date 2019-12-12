@@ -1,4 +1,4 @@
-# Creating a sysimage
+# [Creating a sysimage](@id man-tutorial-sysimage)
 
 ## Julia's compilation model and sysimages
 
@@ -10,12 +10,13 @@ dynamically recompiled based on runtime performance data, which Julia does not
 do. At the same time, Julia comes with a lot of built-in functionality
 including several standard libraries. If all this built-in functionality would
 need to be parsed, type inferred and compiled every time Julia started, the
-startup-time be longer than reasonable. Therefore, Julia bundles something
-called a "sysimage" which is a [shared library][shared-library-url] where
-(roughly) the state of a running Julia session has been stored (serialized).
-When Julia starts, this sysimage gets loaded, which is a quite quick process
-(50ms on the author's machine), and all the cached compiled code can
-immediately be used, without requiring any compilation.
+startup-time would be longer than reasonable. Therefore, Julia bundles
+something called a "sysimage" which is a [shared
+library](https://en.wikipedia.org/wiki/Library_(computing)#Shared_libraries)
+where (roughly) the state of a running Julia session has been stored
+(serialized).  When Julia starts, this sysimage gets loaded, which is a quite
+quick process (50ms on the author's machine), and all the cached compiled code
+can immediately be used, without requiring any compilation.
 
 ## Custom sysimages
 
@@ -28,14 +29,15 @@ particular version it was when it got put into the sysimage. In addition, all
 the dependencies of the package put into the sysimage will be frozen in the
 same manner.  In particular, it will no longer be updated like normal packages
 when using the package manager. In some cases, other ways of reducing latency
-might be preferable, for example, using [Revise.jl][Revise-url]
+might be preferable, for example, using [Revise.jl](https://github.com/timholy/Revise.jl)
 
 ## Example workload
 
 To have something concrete to work with, let's assume we have a small script
-that reads a CSV-file and perhasp compute some statistics on it.  As an
-example, we will use a sample CSV file containing Florida insurance data, which
-can be downloaded [from here][florida-csv-url].
+that reads a CSV-file and computes some statistics on it.  As an example, we
+will use a sample CSV file containing Florida insurance data, which can be
+downloaded [from
+here](http://spatialkeydocs.s3.amazonaws.com/FL_insurance_sample.csv.zip).
 
 One way of loading this file into Julia is by using the `CSV.jl` package. We
 can install `CSV.jl` using the Julia package manager `Pkg` as:
@@ -97,7 +99,7 @@ can be distributed we want to try to avoid as much runtime compilation
 
 ## Creating a custom sysimage
 
-If we time the loading a standard library it is clear that it is "cached"
+If we time the loading of a standard library it is clear that it is "cached"
 somehow since the time to load it is so short:
 
 ```jl-repl
@@ -132,14 +134,16 @@ Creating and using a custom sysimage is done in three steps:
 1. Start Julia with the `--output-o=sys.o custom_sysimage.jl` where
    `custom_sysimage.jl` is a file that creates the state that we want the
    sysimage to contain and `sys.o` is the resulting [object
-   file][object-file-url] that we will turn into a sysimage.
+   file](https://en.wikipedia.org/wiki/Object_file) that we will turn into a
+   sysimage.
 2. Create a shared library from the object file by linking it with `libjulia`.
    This is the actual sysimage.
-3. Use the custom sysimage in Julia with the `-Jpath/to/sysimage` flag.
+3. Use the custom sysimage in Julia with the `-Jpath/to/sysimage` (or the
+   longer, more descriptive `--sysimage`) flag.
 
 ### 1. Creating the object file
 
-For now, the desire is to put `CSV` in the sysimage (in the same way as the
+For now, the goal is to put `CSV` in the sysimage (in the same way as the
 standard library `Dates` is in it). We therefore initially simply create a file
 called `custom_sysimage.jl` with the content.
 
@@ -157,7 +161,7 @@ ERROR: could not open file boot.jl
 
 That didn't work well. It turns out that when using the `--output-o` option one
 has to explicitly give a sysimage path ([due to this
-line][sysimage-explicit-url]).  Since we don't have a custom sysimage yet we
+line](https://github.com/JuliaLang/julia/blob/49fb7924498e9fe813444cc684a24002e75b2ac9/src/jloptions.c#L533)).  Since we don't have a custom sysimage yet we
 just want to give the path to the default sysimage which we can get the path to
 via:
 
@@ -243,7 +247,7 @@ julia --startup-file=no --output-o sys.o -J"/home/kc/julia/lib/julia/sys.so" cus
 ```
 
 This time, after some waiting (2 min on the authors quite beefy computer) we do
-end up with a `sys.o` file, weighing in at 180MB.
+end up with a `sys.o` file.
 
 ### 2. Creating the sysimage shared library from the object file
 
@@ -299,15 +303,15 @@ convention for shared libraries on macOS.
 Getting a compiler toolchain on Windows that works well with Julia is a bit
 trickier than on Linux or macOS.  One quite simple way is to follow the same
 process as needed to compile Julia on windows as outlined
-[here][windows-build-julia-url]  and then use the `x86_64-w64-mingw32-gcc`
-compiler in Cygwin instead of `gcc`. The `libjulia` is also in a different
-location on Windows. Instead of the `lib` folder it is in the `bin` folder.
-Other than that, the same flags as for Linux should work to produce the
-sysimage shared library.
-
+[here](https://github.com/JuliaLang/julia/blob/master/doc/build/windows.md#cygwin-to-mingw-cross-compiling) and then use the `x86_64-w64-mingw32-gcc`
+compiler in Cygwin instead of `gcc`. Alternatively, a mingw compiler can be
+downloaded [from
+here](https://sourceforge.net/projects/mingw-w64/files/mingw-w64/) The
+`libjulia` is also in a different location on Windows. Instead of the `lib`
+folder it is in the `bin` folder.  Other than that, the same flags as for Linux
+should work to produce the sysimage shared library.
 
 ### 3. Running Julia with the new sysimage
-
 
 We start Julia with the `-Jsys.so` flag to load the new custom `sys.so` sysimage (or `sys.dylib`, `sys.dll` on macOS and Windows respecitively) 
 and indeed loading CSV is now very fast:
@@ -358,9 +362,17 @@ resolved.
 ## Recording precompile statements
 
 We are now at the stage where we have CSV in the sysimage, but we still suffer
-some latency because of compilation.  There is a way for Julia to record what
-functions are getting compiled. We can save these and then when building the
-sysimage tell Julia to store save the native code for these functions.
+some latency because of compilation.
+Note that Julia is a dynamically typed language, it is therefore not known statically
+what types will be used in functions. Therefore, in order to be able to compile code
+one needs to know what types functions should be compiled for. One way to do this is to run
+some representative workload and record what types functions end up getting called with.
+This is a little bit like [Profile Guide Optimization (PGO)](https://en.wikipedia.org/wiki/Profile-guided_optimization)
+while it here being something more like Profile Guided Compilation..
+
+There is indeed a way for Julia to record what functions are getting compiled.
+We can save these and then when building the sysimage tell Julia to compile and store
+the native code for these functions.
 
 We create a file called `generate_csv_precompile.jl` containing some "training
 code" that we will use as a base to figure out what functions end up getting
@@ -400,7 +412,7 @@ Julia automatically gave an internal name to refer to.  These symbols are not
 necessarily consistent between different Julia versions or even Julia built for
 different operating systems.  It is possible to make the precompile statements
 more portable by filtering out any symbols starting with `#` but that naturally
-leaves some latency on the table since these now have to be compiled.
+leaves some latency on the table since these now have to be compiled during runtime.
 
 The way we make Julia cache the compilation of the functions in the list is
 simply by executing the statement on each line when the sysimage is created. It
@@ -408,11 +420,12 @@ simply by executing the statement on each line when the sysimage is created. It
 to our `custom_precompile.jl` file.  Firstly, all the modules used in the
 precompilation statements (like `DataFrames`) are not defined in the Main
 namespace. Secondly, due to [some bugs in the way Julia export precompile
-statements][julia-precompile-bug-url] running a precompile statement can fail.
-The solution to these issues is to load all modules in the sysimage by looping
-through `Base.loaded_modules` and to use a `try-catch` for each precompile
-statement.  In addition, we evaluate everything in an anonymous module to not
-pollute the `Main` module which a bunch of symbols.
+statements](https://github.com/JuliaLang/julia/issues/28808) running a
+precompile statement can fail.  The solution to these issues is to load all
+modules in the sysimage by looping through `Base.loaded_modules` and to use a
+`try-catch` for each precompile statement.  In addition, we evaluate everything
+in an anonymous module to not pollute the `Main` module which a bunch of
+symbols.
 
 The end result is a `custom_sysimage.jl` file looking like:
 
@@ -457,16 +470,4 @@ julia> @time CSV.read("FL_insurance_sample.csv");
 ```
 
 And finally, our first time for parsing the CSV-file is close to the second time.
-
-[shared-library-url]: https://en.wikipedia.org/wiki/Library_(computing)#Shared_libraries
-[PackageCompiler-url]: https://github.com/JuliaLang/PackageCompiler.jl
-[PackageCompiler-youtube-url]: https://youtu.be/oxIsFUfaOqU?t=145
-[florida-csv-url]: http://spatialkeydocs.s3.amazonaws.com/FL_insurance_sample.csv.zip 
-[Revise-url]: https://github.com/timholy/Revise.jl
-[object-file-url]: https://en.wikipedia.org/wiki/Object_file
-[sysimage-path-init]: https://github.com/JuliaLang/julia/blob/88c34fc51d962aaef973935942b2e073e2e2f398/base/sysimg.jl#L13-L14
-[sysimage-explicit-url]: https://github.com/JuliaLang/julia/blob/49fb7924498e9fe813444cc684a24002e75b2ac9/src/jloptions.c#L533
-[windows-build-julia-url]: https://github.com/JuliaLang/julia/blob/master/doc/build/windows.md#cygwin-to-mingw-cross-compiling
-[julia-precompile-bug-url]: https://github.com/JuliaLang/julia/issues/28808
-
 

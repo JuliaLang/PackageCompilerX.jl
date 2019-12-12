@@ -1,16 +1,17 @@
-In part 1 and part 2 of this series, we created a custom sysimage and a binary
-(app) that did some simple CSV parsing with an (depending on the exact demands)
-acceptable latency (time until the app starts doing its job).  However, trying
-to send this executable to another machine will fail spectacularly. This part
-of the blog post series outlines how to create and package a bundle of files
-into an app that we can send to other machines and have them run, without for
-example, requiring Julia itself to be installed, and without having to ship the
-source code of the app.
+# Relocatable apps
 
-The blog post will not deal with any kind of file size optimization or "tree
+In the previous tutorials, we created a custom sysimage and a binary (app) that
+did some simple CSV parsing with an (depending on the exact demands) acceptable
+latency (time until the app starts doing real work).  However, trying to send
+this executable to another machine will fail spectacularly. This tutorial
+outlines how to create and package a bundle of files into an app that we can
+send to other machines and have them run, without for example, requiring Julia
+itself to be installed, and without having to ship the source code of the app.
+
+The tutorial will not deal with any kind of file size optimization or "tree
 shaking" as it is sometimes called.
 
-## Why is the built executable in part 2 non-relocatable?
+## Why is the built executable in the previous tutorial non-relocatable?
 
 With relocatability, we mean the ability of being able to send e.g. an
 executable (or a bundle of files including an executable, here called an app)
@@ -25,11 +26,11 @@ could install and run the same Julia as we use to build the app on the other
 machine, then the app should also run on that machine (with exceptions if some
 of our dependencies impose extra requirements on the machine).
 
-So what is causing our executable that we built in part 2 to not be
-relocatable? Firstly, our sysimage relies on `libjulia` which we currently load
-from the Julia directory and, in addition, `libjulia` itself relies on other
-libraries (like LLVM) to work. And secondly, the packages we embedded in the
-sysimage might have encoded assumptions about the current system into their
+So what is causing our executable that we built in the previous tutorial to not
+be relocatable? Firstly, our sysimage relies on `libjulia` which we currently
+load from the Julia directory and, in addition, `libjulia` itself relies on
+other libraries (like LLVM) to work. And secondly, the packages we embedded in
+the sysimage might have encoded assumptions about the current system into their
 code.
 
 The first problem is quite easy to fix while the second one is harder since
@@ -40,17 +41,18 @@ packages.
 For now, we will ignore the problem of packages not being relocatable by only
 using a small dependency that we know does not have a relocatability problem.
 Later in the blog post, we will revisit this and discuss more in-depth what
-makes a package non-relocatability and how to fix this, even if the package
-needs things like external libraries or binaries (spoiler alert: it is using
-the artifact system presented in [the blog about artifacts][artifact-url]).
+makes a package non-relocatable and how to fix this, even if the package needs
+things like external libraries or binaries (spoiler alert: it is using the
+artifact system presented in [the blog about
+artifacts](https://julialang.org/blog/2019/11/artifacts).
 
 ## A toy app
 
 The package we used in the previous examples to create a sysimage and
 executable was CSV.jl. Now, to simplify things, we will only use a very simple
-package with no dependencies that do not have any relocatability problems. The
+package with no relocatability problems that also has no dependencies. The
 app will take some input on stdin and print it out with color to the terminal
-using the [Crayons.jl][https://github.com/KristofferC/Crayons.jl] package. 
+using the [Crayons.jl](https://github.com/KristofferC/Crayons.jl) package. 
 
 When we add the Crayons.jl package we use a separate project to encapsulate
 things better by creating a new project in the app directory:
@@ -113,7 +115,7 @@ The exact details are not so interesting but here a color is set based on the
 command-line arguments and the `stdin` is written to `stdout` with that color.
 We can see some usage of it:
 
-![][fig.png]
+![](app.png)
 
 
 ## Precompilation and sysimage
@@ -177,8 +179,9 @@ subfolder is due to the `rpath` which can be seen with `objdump`:
 
 However, these are not the only libraries Julia (and its standard libraries)
 need. Libraries can also be dynamically opened at runtime (with
-[dlopen][dlopen-url]).  For now, we will just bring all the libraries in
-`lib/julia` along (excluding the sysimage since we will use our sysimage).
+[dlopen](https://linux.die.net/man/3/dlopen)).  For now, we will just bring all
+the libraries in `lib/julia` along (excluding the sysimage since we will use
+our sysimage).
 
 The plan is that on macOS and Linux the files are structured as:
 
@@ -201,7 +204,8 @@ The plan is that on macOS and Linux the files are structured as:
 
 On Windows, we will just store everything in `bin` due to no convenient way of using `RPATH`.
 
-We create a new folder `lib` and copy the libraries into it (and remove the sysimage):
+We create a new folder `lib` and copy the libraries into it (and remove the
+sysimage, since we will create cusom sysimage anyway):
 
 ```
 ~/MyApp
@@ -217,7 +221,7 @@ We create a new folder `lib` and copy the libraries into it (and remove the sysi
 ## Creating the binary and the bundle
 
 With some tweaks to the `rpath` entry so that the executable can find
-`libjulia` the executable is created in the same way as in part 2:
+`libjulia` the executable is created in the same way as in the previous tutorial.
 
 ```
 ~/MyApp
@@ -234,8 +238,10 @@ We then finally move the executable and the sysimage to the `bin` folder:
 ❯ cp MyApp sys.so bin/
 ```
 
-The final bundle of our relocatable app is then by putting the `bin` and `lib`
-folders into an archive:
+![](appexe.png)
+
+The final bundle of our relocatable app is then created by putting the `bin`
+and `lib` folders into an archive:
 
 
 ```
@@ -256,20 +262,23 @@ MyApp/lib/julia/
 ...
 ```
 
-The result of this can be downloaded for different OS:s:
+### macOS consideration
 
-- Linux: [MyApp.tar.gz][MyApp-linux-url]
-- Mac: ...
-- Windows: [MyApp.zip][MyApp-windows-url]
+On macOS we need to run `install_name_tool` to make it use the `rpath` entries
+which is done by executing:
+
+```
+install_name_tool -change sys.so @rpath/sys.so MyApp`
+```
 
 
-## Leaking of build machine state
+## Information about source code and build machine state stored in resulting app
 
 It should be noted that there is some state from the machine where the sysimage
-and binary is built that can be observed.  Using the [strings][strings-url]
-application we can see what strings are embedded in an executable or library.
-Running it and grepping for some relevant substrings we can see that a bunch of
-absolute paths are stored inside the sysimage:
+and binary is built that can be observed and the original source code.  Using
+the [`strings`](https://linux.die.net/man/1/strings) application we can see what strings are embedded in
+an executable or library.  Running it and grepping for some relevant substrings
+we can see that a bunch of absolute paths are stored inside the sysimage:
 
 ``` 
 ~/MyApp/MyApp/lib/julia
@@ -300,11 +309,14 @@ Stacktrace:
 This could be avoided by not printing stacktraces and perhaps even binary
 patching out the paths in the sysimage (not covered in this blog post).
 
+The lowered code can also be read by loading the sysimage and using e.g. `@code_lowered`
+on methods.
+
 ## Relocatability of Julia packages
 
 The main problem with relocatability of Julia packages is that many packages
-are encoding fundamentally non-relocatable *into the source code*.  As an
-example, many packages tend to use a `build.jl` file (which runs when the
+are encoding fundamentally non-relocatable information *into the source code*.
+As an example, many packages tend to use a `build.jl` file (which runs when the
 package is installed) that looks something like:
 
 ```
@@ -331,10 +343,10 @@ package in the sysimage and try use it on another system, it would error when
 initialized since the `LIBFOO_PATH` variable is not valid on the other system.
 However, sometimes we need to bundle libraries and data files since the package
 uses them. Fortunately, there is a plan for that which can be seen in the [blog
-post about artifacts][artifact-url].
+post about artifacts](https://julialang.org/blog/2019/11/artifacts).
 
 The idea is that with the new artifact system a file (`Artifacts.toml`), a
-package can declaratively lists external libraries and files that it needs.  In
+package can declaratively list external libraries and files that it needs.  In
 addition, the artifact system provides a way to find these files at runtime in
 a deterministic way. It is then possible to make sure that all artifacts needed
 for the package is bundled in the app and can also be found by the package
@@ -342,24 +354,4 @@ during runtime.
 
 The details are left out here since they become a bit technical but it should
 give some incentive to switch to the artifact system.
-
-## Summary
-
-This blog post showed how we manually create a relocatable Julia app.  The
-Julia ecosystem itself needs to think a bit more about relocatability in order
-for projects with a large number of dependencies to be able to be relocatable
-but hopefully, with the new artifact system, that might not be too far into the
-future.
-
-Doing all of this manually has been instructive but it is a bit cumbersome.  In
-part 4 we will show how we can use the new package DPGFSOGOFIHG to create
-sysimages, binaries, and apps without having to go through the manual process
-outlined here.
-
-[artifact-url]: https://julialang.org/blog/2019/11/artifacts
-[strings-url]: https://linux.die.net/man/1/strings
-[MyApp-linux-url]: https://send.firefox.com/download/e32c1c7016e1a8b6/#2P4KTLRNpbduswdM1_Os7A
-[MyApp-windows-url]: https://send.firefox.com/download/a9cf0fbfd8b9d6db/#gAlwyAB7EGub_VhMxtHTPA
-[dlopen-url]: https://linux.die.net/man/3/dlopen
-
 
