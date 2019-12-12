@@ -20,18 +20,20 @@ current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
 
 all_stdlibs() = readdir(Sys.STDLIB)
 
-# TODO: Check more carefully how to just use mingw on windows without using cygwin.
 function get_compiler()
     cc = get(ENV, "JULIA_CC", nothing)
     if cc !== nothing
-        return cc
+        return `$cc`
     end
-    if Sys.which("x86_64-w64-mingw32-gcc") !== nothing
-        return `x86_64-w64-mingw32-gcc`
-    elseif Sys.which("gcc") !== nothing
+    if Sys.which("gcc") !== nothing
         return `gcc`
     elseif Sys.which("clang") !== nothing
         return `clang`
+    end
+    if Sys.iswindows()
+        if Sys.which("x86_64-w64-mingw32-gcc") !== nothing
+            return `x86_64-w64-mingw32-gcc`
+        end
     end
     error("could not find a compiler, looked for `gcc` and `clang`")
 end
