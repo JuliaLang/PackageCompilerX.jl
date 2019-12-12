@@ -22,7 +22,7 @@ all_stdlibs() = readdir(Sys.STDLIB)
 
 yesno(b::Bool) = b ? "yes" : "no"
 #TODO: Check if this is optimal
-march() = Int == Int32 ? "-march=pentium4" : ""
+march() = Int == Int32 ? "-march=pentium4" : "-march=x86-64"
 
 function get_compiler()
     cc = get(ENV, "JULIA_CC", nothing)
