@@ -8,6 +8,13 @@ julia:
 before_install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install gcc-multilib; fi
+arch:
+  - x64
+  - x86
+matrix:
+  exclude:
+    - os: osx
+      arch: x86
 branches:
   only:
     - master
