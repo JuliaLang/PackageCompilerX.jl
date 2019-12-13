@@ -169,8 +169,7 @@ backup_default_sysimg_path() = default_sysimg_path() * ".backup"
 backup_default_sysimg_name() = basename(backup_default_sysimg_path())
 
 # TODO: Also check UUIDs for stdlibs, not only names
-gather_stdlibs_project(project::String) =
-    gather_stdlibs_project(Pkg.Types.Context(env=Pkg.Types.EnvCache(project)))
+gather_stdlibs_project(project::String) = gather_stdlibs_project(create_pkg_context(project))
 function gather_stdlibs_project(ctx)
     @assert ctx.env.manifest !== nothing
     stdlibs = all_stdlibs()
@@ -249,13 +248,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     precompile_statements_file = vcat(precompile_statements_file)
 
     # Instantiate the project
-    project_toml_path = Pkg.Types.projectfile_path(project; strict=true)
-    if project_toml_path === nothing
-        error("no project found in $(repr(project))")
-    end
-    project_toml_path = abspath(project_toml_path)
-    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
-    @debug "instantiating project at \"$project_toml_path\""
+    ctx = create_pkg_context(project)
+    @debug "instantiating project at $(repr(project))"
     Pkg.instantiate(ctx)
 
     if !incremental
@@ -329,6 +323,14 @@ end
 
 const REQUIRES = "Requires" => UUID("ae029012-a4dd-5104-9daa-d747884805df")
 
+function create_pkg_context(project)
+    project_toml_path = Pkg.Types.projectfile_path(project; strict=true)
+    if project_toml_path === nothing
+        error("could not find project at $(repr(project))")
+    end
+    return Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
+end
+
 """
     audit_app(app_dir::String)
 
@@ -339,11 +341,7 @@ the project at `app_dir`.
     This cannot guarantee that the project is free of relocatability problems,
     it can only detect some known bad cases and warn about those.
 """
-function audit_app(app_dir::String)
-    project_toml_path = abspath(Pkg.Types.projectfile_path(app_dir; strict=true))
-    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
-    return audit_app(ctx)
-end
+audit_app(app_dir::String) = audit_app(create_pkg_context(app_dir))
 function audit_app(ctx::Pkg.Types.Context)
     # Check for Requires.jl usage
     if REQUIRES in ctx.env.project.deps
@@ -524,11 +522,11 @@ function bundle_artifacts(ctx, app_dir)
     Pkg.Operations.load_all_deps!(ctx, pkgs)
 
     # Also want artifacts for the project itself
-    if ctx.env.pkg !== nothing
-        # This is kinda ugly...
-        ctx.env.pkg.path = dirname(ctx.env.project_file)
-        push!(pkgs, ctx.env.pkg)
-    end
+    ctx = create_pkg_context(app_dir)
+    @assert ctx.env.pkg !== nothing
+    # This is kinda ugly...
+    ctx.env.pkg.path = dirname(ctx.env.project_file)
+    push!(pkgs, ctx.env.pkg)
 
     # Collect all artifacts needed for the project
     artifact_paths = String[]
