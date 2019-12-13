@@ -169,9 +169,9 @@ backup_default_sysimg_path() = default_sysimg_path() * ".backup"
 backup_default_sysimg_name() = basename(backup_default_sysimg_path())
 
 # TODO: Also check UUIDs for stdlibs, not only names
-function gather_stdlibs_project(project::String)
-    project_toml_path = abspath(Pkg.Types.projectfile_path(project; strict=true))
-    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
+gather_stdlibs_project(project::String) =
+    gather_stdlibs_project(Pkg.Types.Context(env=Pkg.Types.EnvCache(project)))
+function gather_stdlibs_project(ctx)
     @assert ctx.env.manifest !== nothing
     stdlibs = all_stdlibs()
     stdlibs_project = String[]
@@ -216,7 +216,7 @@ by setting the envirnment variable `JULIA_CC` to a path to a compiler
 """
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
-                         project::String=active_project(),
+                         project::String=dirname(active_project()),
                          precompile_execution_file::Union{String, Vector{String}}=String[],
                          precompile_statements_file::Union{String, Vector{String}}=String[],
                          incremental::Bool=true,
@@ -249,11 +249,12 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     precompile_statements_file = vcat(precompile_statements_file)
 
     # Instantiate the project
-    project_toml_path = abspath(Pkg.Types.projectfile_path(project; strict=true))
+    project_toml_path = Pkg.Types.projectfile_path(project; strict=true)
     if project_toml_path === nothing
         error("no project found in $(repr(project))")
     end
-    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project))
+    project_toml_path = abspath(project_toml_path)
+    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
     @debug "instantiating project at \"$project_toml_path\""
     Pkg.instantiate(ctx)
 
@@ -262,7 +263,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
             error("cannot specify `base_sysimage`  when `incremental=false`")
         end
         if filter_stdlibs
-            stdlibs = gather_stdlibs_project(project)
+            stdlibs = gather_stdlibs_project(ctx)
         else
             stdlibs= all_stdlibs()
         end
