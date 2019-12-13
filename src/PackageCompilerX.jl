@@ -248,6 +248,15 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     precompile_execution_file  = vcat(precompile_execution_file)
     precompile_statements_file = vcat(precompile_statements_file)
 
+    # Instantiate the project
+    project_toml_path = abspath(Pkg.Types.projectfile_path(project; strict=true))
+    if project_toml_path === nothing
+        error("no project found in $(repr(project))")
+    end
+    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project))
+    @debug "instantiating project at \"$project_toml_path\""
+    Pkg.instantiate(ctx)
+
     if !incremental
         if base_sysimage !== nothing
             error("cannot specify `base_sysimage`  when `incremental=false`")
@@ -424,11 +433,6 @@ function create_app(package_dir::String,
         error("expected package to have a `name`-entry")
     end
     sysimg_file = app_name * "." * Libdl.dlext
-
-    ctx = Pkg.Types.Context(env=Pkg.Types.EnvCache(project_toml_path))
-    @debug "instantiating project at \"$project_toml_path\""
-    Pkg.instantiate(ctx)
-    
     if isdir(app_dir)
         if !force
             error("directory $(repr(app_dir)) already exists, use `force=true` to overwrite (will completely",
