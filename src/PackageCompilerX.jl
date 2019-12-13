@@ -418,19 +418,15 @@ function create_app(package_dir::String,
                     filter_stdlibs=false,
                     audit=true,
                     force=false)
-    project_toml_path = abspath(Pkg.Types.projectfile_path(package_dir; strict=true))
-    if project_toml_path === nothing
-        error("no project found in $(repr(package_dir))")
-    end
-    manifest_toml_path = abspath(Pkg.Types.manifestfile_path(package_dir))
-    if manifest_toml_path === nothing
+    package_dir = abspath(package_dir)
+    ctx = create_pkg_context(package_dir)
+    if isempty(ctx.env.manifest)
         @warn "it is not recommended to create an app without a preexisting manifest"
     end
-    project_toml = Pkg.TOML.parsefile(project_toml_path)
-    project_path = abspath(package_dir)
-    app_name = get(project_toml, "name") do
+    if ctx.env.pkg === nothing
         error("expected package to have a `name`-entry")
     end
+    app_name = ctx.env.pkg.name
     sysimg_file = app_name * "." * Libdl.dlext
     if isdir(app_dir)
         if !force
@@ -457,11 +453,11 @@ function create_app(package_dir::String,
             # by first creating a normal "empty" sysimage and then use that to finally create the one
             # with the @ccallable function
             tmp_base_sysimage = joinpath(tmp, "tmp_sys.so")
-            create_sysimage(Symbol[]; sysimage_path=tmp_base_sysimage, project=project_path,
+            create_sysimage(Symbol[]; sysimage_path=tmp_base_sysimage, project=package_dir,
                             incremental=false, filter_stdlibs=filter_stdlibs,
                             cpu_target=APP_CPU_TARGET)
 
-            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path,
+            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=package_dir,
                             incremental=true,
                             precompile_execution_file=precompile_execution_file,
                             precompile_statements_file=precompile_statements_file,
@@ -469,7 +465,7 @@ function create_app(package_dir::String,
                             base_sysimage=tmp_base_sysimage,
                             compiled_modules=false #= workaround julia#34076=#)
         else
-            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=project_path,
+            create_sysimage(Symbol(app_name); sysimage_path=sysimg_file, project=package_dir,
                                               incremental=incremental, filter_stdlibs=filter_stdlibs,
                                               precompile_execution_file=precompile_execution_file,
                                               precompile_statements_file=precompile_statements_file,
@@ -522,7 +518,6 @@ function bundle_artifacts(ctx, app_dir)
     Pkg.Operations.load_all_deps!(ctx, pkgs)
 
     # Also want artifacts for the project itself
-    ctx = create_pkg_context(app_dir)
     @assert ctx.env.pkg !== nothing
     # This is kinda ugly...
     ctx.env.pkg.path = dirname(ctx.env.project_file)
