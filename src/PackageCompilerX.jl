@@ -104,30 +104,11 @@ function do_compilecache(project, packages, sysimage)
     for (pkg, uuid) in packages
         compilecache *= """println(Base.compilecache(Base.PkgId(Base.UUID("$(uuid)"), $(repr(pkg)))))\n"""
     end
-    println(compilecache)
 
-    @show "compilecache sysimage: $sysimage"
     cmd = `$(get_julia_cmd()) --sysimage=$sysimage --project=$project -e $compilecache`
     @debug "running $cmd"
     paths = read(cmd, String)
-    @show paths
     return String.(split(paths))
-end
-
-function do_compilecache_2(project, packages)
-    # TODO: Only call compilecache on packages with stale cachefiles
-    # Need to set the project
-    tmp = Base.ACTIVE_PROJECT[]
-    Base.ACTIVE_PROJECT[] = project
-    ji_paths = String[]
-    try
-        for (pkg, uuid) in packages
-            push!(ji_paths, Base.compilecache(Base.PkgId(uuid, pkg)))
-        end
-    finally
-        Base.ACTIVE_PROJECT[] = tmp
-    end
-    return ji_paths
 end
 
 function create_sysimg_object_file(object_file::String, precompile_paths::Vector{String};
@@ -140,6 +121,8 @@ function create_sysimg_object_file(object_file::String, precompile_paths::Vector
     # include all packages into the sysimg
     julia_code = """
         Base.reinit_stdio()
+        Base.init_load_path()
+        Base.init_depot_path()
         """
 
     @show precompile_paths
@@ -147,7 +130,6 @@ function create_sysimg_object_file(object_file::String, precompile_paths::Vector
         julia_code *= """
             @eval Module() begin
                 m = Base._require_from_serialized($(repr(path)))
-                @show m
                 m isa Exception && throw(m)
             end
             """
@@ -204,7 +186,10 @@ function create_sysimg_object_file(object_file::String, precompile_paths::Vector
         julia_code *= app_start_code
     end
 
-    println(julia_code)
+    julia_code *= """
+        empty!(LOAD_PATH)
+        empty!(DEPOT_PATH)
+        """
 
     # finally, make julia output the resulting object file
     @debug "creating object file at $object_file"
