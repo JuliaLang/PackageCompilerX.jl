@@ -125,7 +125,6 @@ function create_sysimg_object_file(object_file::String, precompile_paths::Vector
         Base.init_depot_path()
         """
 
-    @show precompile_paths
     for path in precompile_paths
         julia_code *= """
             @eval Module() begin
