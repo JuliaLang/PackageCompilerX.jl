@@ -18,7 +18,9 @@ Base.init_depot_path()
                               precompile_execution_file="precompile_execution.jl",
                               precompile_statements_file=["precompile_statements.jl",
                                                           "precompile_statements2.jl"])
-    run(`$(Base.julia_cmd()) -J $(sysimage_path) -e 'println(1337)'`)
+    # Check we can load sysimage and that Example is available in Main
+    str = read(`$(Base.julia_cmd()) -J $(sysimage_path) -e 'Example.hello("foo")'`, String)
+    @test occursin("Hello, foo", str)
 
     # Test creating an app
     app_source_dir = joinpath(@__DIR__, "..", "examples/MyApp/")
