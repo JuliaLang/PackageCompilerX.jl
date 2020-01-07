@@ -6,7 +6,6 @@ ENV["JULIA_DEBUG"] = "PackageCompilerX"
 
 # Make a new depot
 new_depot = mktempdir()
-@show DEPOT_PATH
 mkpath(joinpath(new_depot, "registries"))
 cp(joinpath(DEPOT_PATH[1], "registries", "General"), joinpath(new_depot, "registries", "General"))
 ENV["JULIA_DEPOT_PATH"] = new_depot

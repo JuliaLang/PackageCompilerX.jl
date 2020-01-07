@@ -50,7 +50,7 @@ function rewrite_sysimg_jl_only_needed_stdlibs(stdlibs::Vector{String})
 end
 
 function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target::String)
-    tmp = mktempdir(cleanup=false)
+    tmp = mktempdir()
     sysimg_source_path = Base.find_source_file("sysimg.jl")
     base_dir = dirname(sysimg_source_path)
     tmp_corecompiler_ji = joinpath(tmp, "corecompiler.ji")
@@ -83,7 +83,7 @@ function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target::String)
     return tmp_sys_ji
 end
 
-function run_precompilation_script(project::String, precompile_file::Union{String, Nothing})
+function run_precompilation_script(project::String, sysimg::String, precompile_file::Union{String, Nothing})
     tracefile = tempname()
     if precompile_file == nothing
         arg = `-e ''`
@@ -91,7 +91,7 @@ function run_precompilation_script(project::String, precompile_file::Union{Strin
         arg = `$precompile_file`
     end
     touch(tracefile)
-    cmd = `$(get_julia_cmd()) --sysimage=$(current_process_sysimage_path()) --project=$project
+    cmd = `$(get_julia_cmd()) --sysimage=$(sysimg) --project=$project
             --compile=all --trace-compile=$tracefile $arg`
     @debug "run_precompilation_script: running $cmd"
     read(cmd)
@@ -139,7 +139,7 @@ function create_sysimg_object_file(object_file::String, precompile_paths::Vector
     @debug "running precompilation execution script..."
     tracefiles = String[]
     for file in (isempty(precompile_execution_file) ? (nothing,) : precompile_execution_file)
-        tracefile = run_precompilation_script(project, file)
+        tracefile = run_precompilation_script(project, base_sysimage, file)
         precompile_statements *= "    append!(precompile_statements, readlines($(repr(tracefile))))\n"
     end
     for file in precompile_statements_file
@@ -322,7 +322,6 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     if ctx.env.pkg !== nothing
         pkg_uuid_map[ctx.env.pkg.name] = ctx.env.pkg.uuid
     end
-
     if !isempty(packages)
         ji_paths = do_compilecache(project, [pkg => pkg_uuid_map[pkg] for pkg in string.(packages)], base_sysimage)
     else
