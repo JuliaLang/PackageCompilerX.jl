@@ -4,6 +4,7 @@ using Base: active_project
 using Libdl: Libdl
 using Pkg: Pkg
 using UUIDs: UUID
+using Random
 
 export create_sysimage, create_app, audit_app, restore_default_sysimage
 
@@ -67,7 +68,10 @@ function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target::String)
 
         # Use that to create sys.ji
         new_sysimage_content = rewrite_sysimg_jl_only_needed_stdlibs(stdlibs)
-        new_sysimage_source_path = joinpath(base_dir, "sysimage_packagecompiler_x.jl")
+        i = 0
+
+        new_sysimage_source_name = string("sysimage_packagecompiler_x_", randstring(6), ".jl")
+        new_sysimage_source_path = joinpath(base_dir, new_sysimage_source_name)
         write(new_sysimage_source_path, new_sysimage_content)
         try
             cmd = `$(get_julia_cmd()) --cpu-target $cpu_target
