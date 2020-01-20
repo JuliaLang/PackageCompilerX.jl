@@ -12,6 +12,8 @@ arch:
   - x64
   - x86
 matrix:
+  allow_failures:
+    - arch: x86
   exclude:
     - os: osx
       arch: x86
