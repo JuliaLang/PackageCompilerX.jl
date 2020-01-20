@@ -43,5 +43,17 @@ julia> @time (p = plot(rand(5), rand(5)); display(p))
   0.139642 seconds (468.42 k allocations: 12.176 MiB)
 ```
 
-which is a nice speedup.
+which is a sizeable speedup.
 
+Note that since we have more stuff in our sysimage, Julia is slightly slower to
+start (0.04 seconds on this machine):
+
+```
+# Default sysimage
+➜ time julia  -e ''
+    0.13s user 0.08s system 88% cpu 0.232 total
+
+# Custom sysimage
+➜ time julia -Jsys_plots.so -e ''
+    0.17s user 0.10s system 94% cpu 0.284 total
+```
