@@ -116,6 +116,7 @@ function create_sysimg_object_file(object_file::String, packages::Vector{String}
                             precompile_execution_file::Vector{String},
                             precompile_statements_file::Vector{String},
                             cpu_target::String,
+                            script::String,
                             isapp::Bool)
     
     # Handle precompilation
@@ -169,6 +170,12 @@ function create_sysimg_object_file(object_file::String, packages::Vector{String}
     for pkg in packages
         julia_code *= """
             using $pkg
+            """
+    end
+
+    if script !== nothing
+        julia_code *= """
+            include($(repr(script)))
             """
     end
 
@@ -238,10 +245,12 @@ end
 
 """
     create_sysimage(packages::Union{Symbol, Vector{Symbol}}; kwargs...)
+    create_sysimage(script::String; kwargs...)
 
-Create a system image that includes the package(s) in `packages`.  An attempt
-to automatically find a compiler will be done but can also be given explicitly
-by setting the envirnment variable `JULIA_CC` to a path to a compiler
+Create a system image that includes the package(s) in `packages` or,
+alternatively, the state when executing `script`. An attempt to automatically
+find a compiler will be done but can also be given explicitly by setting the
+envirnment variable `JULIA_CC` to a path to a compiler
 
 ### Keyword arguments:
 
@@ -266,6 +275,9 @@ by setting the envirnment variable `JULIA_CC` to a path to a compiler
 
 - `replace_default::Bool`: If `true`, replaces the default system image which is automatically
    used when Julia starts. To replace with the one Julia ships with, use [`restore_default_sysimage()`](@ref)
+
+- `script::String`: For advanced users. Run a custom script in the process that creates the sysimage
+  (the one started with `--output-o`).
 """
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
@@ -275,6 +287,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          incremental::Bool=true,
                          filter_stdlibs=false,
                          replace_default::Bool=false,
+                         script::Union{Nothing, String}=nothing,
                          cpu_target::String=NATIVE_CPU_TARGET,
                          base_sysimage::Union{Nothing, String}=nothing,
                          isapp::Bool=false)
@@ -294,6 +307,12 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
     end
     if filter_stdlibs && incremental
         error("must use `incremental=false` to use `filter_stdlibs=true`")
+    end
+    if script !== nothing
+        script = abspath(script)
+        if !isfile(script)
+            error("could not find file $(repr(script))")
+        end
     end
 
     # Functions lower down handles `packages` and precompilation file as arrays so convert here
@@ -332,6 +351,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                               precompile_execution_file=precompile_execution_file,
                               precompile_statements_file=precompile_statements_file,
                               cpu_target=cpu_target,
+                              script=script,
                               isapp=isapp)
     create_sysimg_from_object_file(object_file, sysimage_path)
 
