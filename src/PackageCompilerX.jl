@@ -86,6 +86,40 @@ function create_fresh_base_sysimage(stdlibs::Vector{String}; cpu_target::String)
     return tmp_sys_ji
 end
 
+if VERSION >= v"1.4"
+    function package_directory(pkgname::AbstractString)
+        for (uuid, info) in Pkg.dependencies()
+            info.name == pkgname && return info.source
+        end
+       return nothing
+    end
+else
+    function package_directory(pkgname::AbstractString)
+        return Pkg.dir("PredictMDExtra")
+    end
+end
+
+function generate_tracefiles_runtests(project::String,
+                                      sysimg::String,
+                                      pkgs::AbstractVector{<:AbstractString})
+    tracefiles = Vector{String}(undef, 0)
+    for pkg in pkgs
+        pkgdir = package_directory(pkg)
+        if pkgdir !== nothing
+            runtests_file = joinpath(pkgdir, "test", "runtests.jl")
+            if isfile(runtests_file)
+                tracefile = run_precompilation_script(project,
+                                                      sysimg,
+                                                      runtests_file)
+                push!(tracefiles, tracefile)
+            else
+                @warn("$(pkg) does not have a test/runtests.jl file")
+            end
+        end
+    end
+    return tracefiles
+end
+
 function run_precompilation_script(project::String, sysimg::String, precompile_file::Union{String, Nothing})
     tracefile = tempname()
     if precompile_file == nothing
@@ -116,8 +150,9 @@ function create_sysimg_object_file(object_file::String, packages::Vector{String}
                             precompile_execution_file::Vector{String},
                             precompile_statements_file::Vector{String},
                             cpu_target::String,
-                            isapp::Bool)
-    
+                            isapp::Bool,
+                            runtests::Vector{String})
+
     # Handle precompilation
     precompile_statements = ""
     @debug "running precompilation execution script..."
@@ -129,6 +164,10 @@ function create_sysimg_object_file(object_file::String, packages::Vector{String}
     for file in precompile_statements_file
         precompile_statements *=
             "    append!(precompile_statements, readlines($(repr(file))))\n"
+    end
+
+    for tracefile in generate_tracefiles_runtests(project, base_sysimage, runtests)
+        precompile_statements *= "    append!(precompile_statements, readlines($(repr(tracefile))))\n"
     end
 
     precompile_code = """
@@ -252,7 +291,7 @@ by setting the envirnment variable `JULIA_CC` to a path to a compiler
 - `project::String`: The project that should be active when the sysmage is created,
    defaults to the current active project.
 
-- `precompile_execution_file::Union{String, Vector{String}}`: A file or list of 
+- `precompile_execution_file::Union{String, Vector{String}}`: A file or list of
    files that contain code which precompilation statements should be recorded from.
 
 - `precompile_statements_file::Union{String, Vector{String}}`: A file or list of
@@ -266,6 +305,10 @@ by setting the envirnment variable `JULIA_CC` to a path to a compiler
 
 - `replace_default::Bool`: If `true`, replaces the default system image which is automatically
    used when Julia starts. To replace with the one Julia ships with, use [`restore_default_sysimage()`](@ref)
+
+- `runtests::Union{Symbol, Vector{Symbol}}`: A package or list of packages for which
+   the package tests should be run to generate precompilation statements. Defaults to
+   `Symbol[]` (i.e. by default no package tests are run).
 """
 function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          sysimage_path::Union{String,Nothing}=nothing,
@@ -277,7 +320,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                          replace_default::Bool=false,
                          cpu_target::String=NATIVE_CPU_TARGET,
                          base_sysimage::Union{Nothing, String}=nothing,
-                         isapp::Bool=false)
+                         isapp::Bool=false,
+                         runtests::Union{Symbol, Vector{Symbol}} = Symbol[])
     precompile_statements_file = abspath.(precompile_statements_file)
     if replace_default==true
         if sysimage_path !== nothing
@@ -298,6 +342,7 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
 
     # Functions lower down handles `packages` and precompilation file as arrays so convert here
     packages = string.(vcat(packages)) # Package names are often used as string inside Julia
+    runtests = string.(vcat(runtests)) # Package names are often used as string inside Julia
     precompile_execution_file  = vcat(precompile_execution_file)
     precompile_statements_file = vcat(precompile_statements_file)
 
@@ -332,7 +377,8 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
                               precompile_execution_file=precompile_execution_file,
                               precompile_statements_file=precompile_statements_file,
                               cpu_target=cpu_target,
-                              isapp=isapp)
+                              isapp=isapp,
+                              runtests=runtests)
     create_sysimg_from_object_file(object_file, sysimage_path)
 
     # Maybe replace default sysimage
@@ -498,7 +544,7 @@ function create_app(package_dir::String,
     end
 
     audit && audit_app(ctx)
-   
+
     mkpath(app_dir)
 
     bundle_julia_libraries(app_dir)
