@@ -191,3 +191,29 @@ It is also possible to use
 [SnoopCompile.jl](https://timholy.github.io/SnoopCompile.jl/stable/snoopi/#auto-1)
 to create files with precompilation statements.
 
+
+### Using a package's test suite to generate precompile statements
+
+It is also possible to use a package's test suite to generate a list of
+precompile statements. For example, create a file named
+`runtests_example.jl` with the following contents:
+```julia
+import Example
+include(joinpath(pkgdir(Example), "test", "runtests.jl"))
+```
+
+We now create a new system image called `ExampleSysimagePrecompile.so`, where
+the `precompile_execution_file` keyword argument points to the
+`runtests_example.jl` file:
+```julia-repl
+julia> PackageCompilerX.create_sysimage(:Example; sysimage_path="ExampleSysimagePrecompile.so",
+                                         precompile_execution_file="runtests_example.jl")
+```
+
+We can combine this approach (using the package's test suite) with the
+"precompile script" we wrote earlier. To do so, we pass a vector to the `precompile_execution_file` keyword argument. For example we might set
+`precompile_execution_file=["runtests_example.jl", "precompile_example.jl"]`.
+```julia-repl
+julia> PackageCompilerX.create_sysimage(:Example; sysimage_path="ExampleSysimagePrecompile.so",
+                                         precompile_execution_file=["runtests_example.jl", "precompile_example.jl"])
+```
