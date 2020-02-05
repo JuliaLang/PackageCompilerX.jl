@@ -29,5 +29,4 @@ For macOS, using something like `homebrew` and for Linux the system package mana
 
 ### Windows
 
-For Windows, unless `gcc` is found in the current path, a suitable compiler will be automatically installed
-the first time it is neeed.
+A suitable compiler will be automatically installed the first time it is neeed.
