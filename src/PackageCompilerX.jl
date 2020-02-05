@@ -27,13 +27,13 @@ function get_compiler()
     end
     if Sys.which("gcc") !== nothing
         return `gcc`
-    elseif Sys.which("clang") !== nothing
-        return `clang`
     end
     if Sys.iswindows()
-        if Sys.which("x86_64-w64-mingw32-gcc") !== nothing
-            return `x86_64-w64-mingw32-gcc`
-        end
+        gcc_win_artifact_path = joinpath(Pkg.Artifacts.artifact"x86_64-w64-mingw32", "mingw64", "bin", "gcc.exe")
+        return `$gcc_win_artifact_path`
+    end
+    if Sys.which("clang") !== nothing
+        return `clang`
     end
     error("could not find a compiler, looked for `gcc` and `clang`")
 end
