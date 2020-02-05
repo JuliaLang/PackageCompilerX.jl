@@ -21,16 +21,16 @@ bitflag() = Int == Int32 ? `-m32` : `-m64`
 march() = (Int == Int32 ? `-march=pentium4` : ``)
 
 function get_compiler()
+    if Sys.iswindows()
+        gcc_win_artifact_path = joinpath(Pkg.Artifacts.artifact"x86_64-w64-mingw32", "mingw64", "bin", "gcc.exe")
+        return `$gcc_win_artifact_path`
+    end
     cc = get(ENV, "JULIA_CC", nothing)
     if cc !== nothing
         return `$cc`
     end
     if Sys.which("gcc") !== nothing
         return `gcc`
-    end
-    if Sys.iswindows()
-        gcc_win_artifact_path = joinpath(Pkg.Artifacts.artifact"x86_64-w64-mingw32", "mingw64", "bin", "gcc.exe")
-        return `$gcc_win_artifact_path`
     end
     if Sys.which("clang") !== nothing
         return `clang`
