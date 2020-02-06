@@ -399,8 +399,7 @@ function restore_default_sysimage()
         error("did not find a backup sysimg")
     end
     move_default_sysimage_if_windows()
-    cp(backup_default_sysimg_path(), default_sysimg_path(); force=true)
-    rm(backup_default_sysimg_path())
+    mv(backup_default_sysimg_path(), default_sysimg_path(); force=true)
     @info "PackageCompilerX: default sysimg restored, restart Julia for the new sysimg to be in effect"
     return nothing
 end
