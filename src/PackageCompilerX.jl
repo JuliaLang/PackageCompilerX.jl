@@ -39,9 +39,9 @@ function get_compiler()
         return joinpath(Pkg.Artifacts.artifact"x86_64-w64-mingw32", "mingw64", "bin", "gcc.exe")
     end
     if Sys.which("gcc") !== nothing
-        return gcc
+        return "gcc"
     elseif Sys.which("clang") !== nothing
-        return clang
+        return "clang"
     end
     error("could not find a compiler, looked for `gcc` and `clang`")
 end
