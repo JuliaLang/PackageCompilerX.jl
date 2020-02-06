@@ -352,8 +352,11 @@ function create_sysimage(packages::Union{Symbol, Vector{Symbol}};
             @debug "making a backup of default sysimg"
             cp(default_sysimg_path(), backup_default_sysimg_path())
         end
-        @info "PackageCompilerX: default sysimg replaced, restart Julia for the new sysimg to be in effect"
+        if Sys.iswindows()
+            mv(default_sysimg_path(), tempname())
+        end
         mv(sysimage_path, default_sysimg_path(); force=true)
+        @info "PackageCompilerX: default sysimg replaced, restart Julia for the new sysimg to be in effect"
     end
     rm(object_file; force=true)
     return nothing
@@ -388,6 +391,9 @@ Useful after running [`create_sysimage`](@ref) with `replace_default=true`.
 function restore_default_sysimage()
     if !isfile(backup_default_sysimg_path())
         error("did not find a backup sysimg")
+    end
+    if Sys.iswindows()
+        mv(default_sysimg_path(), tempname())
     end
     cp(backup_default_sysimg_path(), default_sysimg_path(); force=true)
     rm(backup_default_sysimg_path())
