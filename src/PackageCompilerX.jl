@@ -273,8 +273,13 @@ by setting the envirnment variable `JULIA_CC` to a path to a compiler
 - `filter_stdlibs::Bool`: If `true`, only include stdlibs that are in the project file.
    Defaults to `false`, only set to `true` if you know the potential pitfalls.
 
-- `replace_default::Bool`: If `true`, replaces the default system image which is automatically
-   used when Julia starts. To replace with the one Julia ships with, use [`restore_default_sysimage()`](@ref)
+- `replace_default::Bool`: If `true`, replaces the default system image which
+  is automatically used when Julia starts. To restore the default sysimage to one
+  Julia ships with, use [`restore_default_sysimage()`](@ref).  Note that this
+  option does not work well on Windows since replacing open files is problematic
+  on Windows. Therefore, on Windows, it is in general better to manually replace
+  the default sysimage (the `lib/julia/sys.dll` file in the installation folder)
+  than to use this option.
 
 - `cpu_target::String`: The value to use for `JULIA_CPU_TARGET` when building the system image.
 """
@@ -382,8 +387,12 @@ end
 """
     restore_default_sysimage()
 
-Restores the default system image to the one that Julia shipped with.
-Useful after running [`create_sysimage`](@ref) with `replace_default=true`.
+Restores the default system image to the one that Julia shipped with. Useful
+after running [`create_sysimage`](@ref) with `replace_default=true`. Note that
+this function does not work well on Windows since replacing open files is
+problematic on Windows. Therefore, on Windows, it is in general better to
+manually replace and restore the default sysimage (the `lib/julia/sys.dll`
+file in the installation folder) than to use this function.
 """
 function restore_default_sysimage()
     if !isfile(backup_default_sysimg_path())

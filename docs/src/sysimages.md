@@ -108,6 +108,14 @@ If this is the first time `create_sysimage` is called with `replace_default`, a
 backup of the default sysimage is created. The default sysimage can then be
 restored with [`restore_default_sysimage()`](@ref).
 
+!!! note
+    
+    Automatically replacing the default sysimage does not work well on Windows
+    since replacing open files is problematic there. Therefore, on
+    Windows, it is in general better to manually replace the default sysimage
+    (the `lib/julia/sys.dll` file in the installation folder) than to use the
+    more automatic functionalities.
+
 Note that sysimages are created "incrementally" in the sense that they add to
 the sysimage of the process running PackageCompilerX. If the default sysimage
 has been replaced, the next `create_sysimage` call will create a new sysimage
