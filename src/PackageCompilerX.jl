@@ -18,7 +18,14 @@ all_stdlibs() = readdir(Sys.STDLIB)
 
 yesno(b::Bool) = b ? "yes" : "no"
 bitflag() = Int == Int32 ? `-m32` : `-m64`
-march() = (Int == Int32 ? `-march=pentium4` : ``)
+
+function march()
+    if Sys.ARCH == :aarch64
+        return (Int == Int32 ? `-march=armv7-a` : `-march=armv8-a+crypto+simd`)
+    else
+        return (Int == Int32 ? `-march=pentium4` : ``)
+    end
+end
 
 # Overwriting an open file is problematic in Windows
 # so move it out of the way first
