@@ -17,7 +17,14 @@ current_process_sysimage_path() = unsafe_string(Base.JLOptions().image_file)
 all_stdlibs() = readdir(Sys.STDLIB)
 
 yesno(b::Bool) = b ? "yes" : "no"
-bitflag() = Int == Int32 ? `-m32` : `-m64`
+
+function bitflag()
+    if Sys.ARCH == :aarch64
+        return ``
+    else
+        return Int == Int32 ? `-m32` : `-m64`
+    end
+end
 
 function march()
     if Sys.ARCH == :aarch64
