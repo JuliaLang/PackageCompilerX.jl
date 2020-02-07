@@ -11,12 +11,17 @@ before_install:
 arch:
   - x64
   - x86
+  - arm64
 jobs:
   allow_failures:
     - arch: x86
   exclude:
     - os: osx
       arch: x86
+    - os: osx
+      arch: arm64
+    - os: windows
+      arch: arm64
   include:
     - stage: "Documentation"
       julia: 1.3
