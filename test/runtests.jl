@@ -13,6 +13,10 @@ Base.init_depot_path()
 
 is_slow_ci = haskey(ENV, "CI") && Sys.ARCH == :aarch64
 
+if haskey(ENV, "CI")
+    @show Sys.ARCH
+end
+
 @testset "PackageCompilerX.jl" begin
     tmp = mktempdir()
     sysimage_path = joinpath(tmp, "sys." * Libdl.dlext)

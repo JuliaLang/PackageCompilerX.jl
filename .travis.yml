@@ -12,6 +12,7 @@ arch:
   - amd64
   - x86
   - arm64
+  - ppc64le
 jobs:
   allow_failures:
     - arch: x86
