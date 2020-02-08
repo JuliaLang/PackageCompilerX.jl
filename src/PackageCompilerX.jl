@@ -454,8 +454,12 @@ function audit_app(ctx::Pkg.Types.Context)
     if isfile(joinpath(dirname(ctx.env.project_file), "deps", "build.jl"))
         @warn "Project has a build script, this might indicate that it is not relocatable"
     end
-    pkgs = Pkg.Types.PackageSpec[]
-    Pkg.Operations.load_all_deps!(ctx, pkgs)
+    if isdefined(Pkg.Operations, :load_all_deps!)
+        pkgs = Pkg.Types.PackageSpec[]
+        Pkg.Operations.load_all_deps!(ctx, pkgs)
+    else
+        pkgs = Pkg.Operations.load_all_deps!(ctx)
+    end
     for pkg in pkgs
         pkg_source = Pkg.Operations.source_path(pkg)
         pkg_source === nothing && continue
