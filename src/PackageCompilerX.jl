@@ -19,7 +19,7 @@ all_stdlibs() = readdir(Sys.STDLIB)
 yesno(b::Bool) = b ? "yes" : "no"
 
 function bitflag()
-    if Sys.ARCH == :aarch64
+    if Sys.ARCH == :aarch64 || Sys.ARCH == :arm
         return ``
     else
         return Int == Int32 ? `-m32` : `-m64`
@@ -27,7 +27,7 @@ function bitflag()
 end
 
 function march()
-    if Sys.ARCH == :aarch64
+    if Sys.ARCH == :aarch64 || Sys.ARCH == :arm
         return (Int == Int32 ? `-march=armv7-a` : `-march=armv8-a+crypto+simd`)
     else
         return (Int == Int32 ? `-march=pentium4` : ``)
