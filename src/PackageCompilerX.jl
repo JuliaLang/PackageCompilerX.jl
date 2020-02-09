@@ -52,7 +52,7 @@ function march()
         return "-march=armv7-a+simd"
     elseif Sys.ARCH === :aarch64
         return "-march=armv8-a+crypto+simd"
-    elseif Sys.ARCH === :ppc64le # is this correct?
+    elseif Sys.ARCH === :powerpc64le
         return nothing
     else
         return nothing
