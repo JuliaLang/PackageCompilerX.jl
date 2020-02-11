@@ -1,5 +1,12 @@
 # PackageCompilerX
 
+## Note!!!!
+
+The content of this package is merged into https://github.com/JuliaLang/PackageCompiler.jl.
+Issues and PRs should go towards that repo.
+
+-------------------------------------------
+
 [![Build Status](https://travis-ci.com/JuliaComputing/PackageCompilerX.jl.svg?branch=master)](https://travis-ci.com/JuliaComputing/PackageCompilerX.jl)
 [![Codecov](https://codecov.io/gh/JuliaComputing/PackageCompilerX.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaComputing/PackageCompilerX.jl)
 [![][docs-stable-img]][docs-stable-url]
